@@ -159,8 +159,8 @@ def test_production_configuration_fails_closed():
     with pytest.raises(
         RuntimeError,
         match=(
-            "ANALYSIS_API_TOKEN, RECORD_INTEGRITY_KEY, "
-            "SECRET_KEY"
+            "ANALYSIS_API_TOKEN, EMAIL_VERIFICATION_HMAC_KEY, "
+            "RECORD_INTEGRITY_KEY, SECRET_KEY"
         ),
     ):
         create_app(
@@ -168,6 +168,7 @@ def test_production_configuration_fails_closed():
                 "APP_ENV": "production",
                 "SECRET_KEY": None,
                 "ANALYSIS_API_TOKEN": None,
+                "EMAIL_VERIFICATION_HMAC_KEY": None,
                 "RECORD_INTEGRITY_KEY": None,
             }
         )
@@ -196,6 +197,7 @@ def test_production_requires_immutable_storage():
                 "SECRET_KEY": "s" * 40,
                 "ANALYSIS_API_TOKEN": "t" * 40,
                 "RECORD_INTEGRITY_KEY": "i" * 40,
+                "EMAIL_VERIFICATION_HMAC_KEY": "e" * 40,
                 "ANALYSIS_STORE_ENABLED": False,
             }
         )
