@@ -43,7 +43,12 @@ def analyze_source_archive(
             "scope": "PROJECT_STATIC_MODEL",
             "execution_policy": "NEVER_EXECUTE_SOURCE",
             "finding_policy": "EVIDENCE_GATED_CANDIDATES",
-            "cross_file_tracing": False,
+            "cross_file_tracing": bool(
+                project_understanding["project_data_flow"]["paths"]
+            ),
+            "cross_file_tracing_scope": (
+                project_understanding["project_data_flow"]["scope"]
+            ),
         },
         "artifact": {
             key: value
@@ -66,5 +71,8 @@ def analyze_source_archive(
                 ]
                 for item in file_results
             ),
+            "cross_file_paths": project_understanding[
+                "project_data_flow"
+            ]["counts"]["observed_paths"],
         },
     }
