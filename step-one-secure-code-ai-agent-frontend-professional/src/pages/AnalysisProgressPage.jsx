@@ -97,6 +97,48 @@ function AnalysisFileCard({ file, ar }) {
   );
 }
 
+function ProjectSummary({ project, ar }) {
+  if (!project) return null;
+  const counts = project.counts ?? {};
+  const calls = project.cross_file_calls ?? [];
+  const shownCalls = calls.slice(0, 8);
+  return (
+    <section className="analysis-result-card" aria-label={ar ? 'فهم المشروع' : 'Project understanding'}>
+      <div className="analysis-result-head">
+        <div>
+          <span className="eyebrow">{ar ? 'نموذج المشروع' : 'Project model'}</span>
+          <h2>{ar ? 'العلاقات بين الملفات' : 'Cross-file relationships'}</h2>
+        </div>
+        <StatusBadge tone="warning">{project.project_type ?? 'UNKNOWN_PROJECT'}</StatusBadge>
+      </div>
+      <div className="analysis-metrics">
+        <div><span>{ar ? 'ملفات' : 'Files'}</span><strong>{counts.files ?? 0}</strong></div>
+        <div><span>{ar ? 'استيرادات مثبتة' : 'Resolved imports'}</span><strong>{counts.resolved_imports ?? 0}</strong></div>
+        <div><span>{ar ? 'استيرادات غير محسومة' : 'Unresolved imports'}</span><strong>{counts.unresolved_imports ?? 0}</strong></div>
+        <div><span>{ar ? 'استدعاءات بين الملفات' : 'Cross-file calls'}</span><strong>{counts.resolved_cross_file_calls ?? 0}</strong></div>
+        <div><span>{ar ? 'مسارات HTTP' : 'HTTP routes'}</span><strong>{counts.routes ?? 0}</strong></div>
+      </div>
+      <div className="analysis-paths">
+        <h3>{ar ? 'الأطر المرصودة' : 'Observed frameworks'}</h3>
+        <p>{project.frameworks?.length
+          ? project.frameworks.map((item) => `${item.name} (${item.status})`).join(' · ')
+          : (ar ? 'لم يثبت إطار عمل من أدلة الملفات.' : 'No framework established from file evidence.')}</p>
+      </div>
+      <div className="analysis-paths">
+        <h3>{ar ? 'الاستدعاءات المثبتة ساكنًا' : 'Statically evidenced calls'}</h3>
+        {shownCalls.length ? shownCalls.map((call, index) => (
+          <div className="analysis-path" key={`${call.source_file}:${call.call_line}:${call.target_file}:${index}`}>
+            <div className="analysis-path-title"><StatusBadge tone="warning">STATIC</StatusBadge><strong>{call.resolution}</strong></div>
+            <p><code dir="ltr">{call.source_file}:{call.call_line} · {call.caller} → {call.target_file} · {call.callee}</code></p>
+          </div>
+        )) : <p className="analysis-empty">{ar ? 'لا توجد علاقة استدعاء بين الملفات مثبتة ضمن النطاق المدعوم.' : 'No cross-file call was established within the supported scope.'}</p>}
+        {calls.length > shownCalls.length && <p>{ar ? `يُعرض ${shownCalls.length} من ${calls.length} استدعاء.` : `Showing ${shownCalls.length} of ${calls.length} calls.`}</p>}
+        <p>{ar ? 'هذه علاقات ساكنة وليست إثباتًا لمسار بيانات أو قابلية استغلال.' : 'These are static relationships, not proof of data flow or exploitability.'}</p>
+      </div>
+    </section>
+  );
+}
+
 export default function AnalysisProgressPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -122,6 +164,7 @@ export default function AnalysisProgressPage() {
           <div><span>{ar ? 'سياسة النتائج' : 'Finding policy'}</span><strong>EVIDENCE_GATED_CANDIDATES</strong></div>
           <div><span>{ar ? 'الحفظ' : 'Persistence'}</span><strong>{persisted ? 'HMAC-SHA256' : (ar ? 'غير مفعّل محليًا' : 'Local persistence disabled')}</strong></div>
         </div>
+        <ProjectSummary ar={ar} project={payload.result.project_understanding} />
         <div className="analysis-result-list">{files.map((file) => <AnalysisFileCard ar={ar} file={file} key={file.name} />)}</div>
         <div className="progress-actions">
           <button className="button button-ghost" onClick={() => navigate('/analysis/new')} type="button"><Icon name="scan" />{ar ? 'تحليل جديد' : 'New analysis'}</button>
