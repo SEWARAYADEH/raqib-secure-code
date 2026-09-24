@@ -112,6 +112,7 @@ Current verified baseline: **138 backend tests passed** and the frontend product
 
 - 2026-09-24 OTP diagnosis: the browser's `127.0.0.1:5173` origin was missing from local `FRONTEND_ORIGIN`; it is now allowed. A direct API request now reaches the email service and returns `503 EMAIL_DELIVERY_UNAVAILABLE` because SMTP credentials are absent. No real email has been delivered or verified.
 - Public repository preparation: personal address remains only in ignored `backend/.env`; tracked files contain no personal allowlist, secret, or analysis database. Root `README.md` states the current implementation limits.
+- Public repository: `https://github.com/SEWARAYADEH/raqib-secure-code` on `main`. GitHub Actions checks backend tests and frontend build on pushes and pull requests. SMTP provider and credentials remain unconfigured; do not report OTP delivery as complete.
 - Local immutable analysis storage is enabled in ignored `backend/.env`; secrets and integrity keys are random and at least 32 characters.
 - Signed sessions use `HttpOnly`, `SameSite=Strict`, a 30-minute lifetime, scoped RBAC, and trusted-origin enforcement on state-changing session requests.
 - Email verification uses an allowlist configured only in ignored `backend/.env`; real delivery remains unavailable until `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_SENDER` are configured outside source control.
