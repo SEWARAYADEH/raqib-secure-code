@@ -46,8 +46,8 @@ Sensors such as SAST, SCA, and AI may add evidence. They are not the reasoning o
 ## Completed baseline review
 
 - No `AGENTS.md` exists.
-- The directory is not currently a Git repository.
-- Frontend: React/Vite professional mock UI. It builds successfully but still uses mock API data.
+- The directory is a Git repository with a public GitHub remote. The live analysis and saved-results screens use the API; other preview screens retain mock contracts.
+- Frontend: React/Vite professional UI. Its analysis flow accepts supported source files and ZIP projects, and its production build passes.
 - Backend before this work: Flask app factory, health route, safe text intake, language evidence, Tree-sitter parsing for Python/JavaScript, local call relationships, and source/sink observations.
 - Baseline before continuation: 35 backend tests passed; frontend production build passed.
 - Known presentation risk: the mock UI must not be described as a working verification engine.
@@ -71,16 +71,16 @@ Sensors such as SAST, SCA, and AI may add evidence. They are not the reasoning o
 5. Added request IDs, no-store and defensive HTTP headers, JSON 413 errors, production secret validation, and disabled hardcoded Flask debug mode.
 6. Added `.gitignore` coverage for secrets, virtual environments, caches, builds, logs, and archives.
 
-Current verified baseline: **146 backend tests passed** and the frontend production build passed (76 transformed modules). A persistence smoke test returned `persisted: true`.
+Current verified baseline (2026-09-24): **155 backend tests passed** and the frontend production build passed (76 transformed modules). A persistence smoke test returned `persisted: true`.
 
 ## Current module map
 
 - `backend/app/intake.py`: bounded UTF-8 source intake and artifact metadata.
-- `backend/app/language_detection.py`: extension/shebang evidence and conflict handling.
+- `backend/app/language_detection.py`: extension, shebang, and Tree-sitter syntax evidence with explicit conflict/unknown handling; only Python and JavaScript/JSX have parsers.
 - `backend/app/parser_engine.py`: Tree-sitter structure, assignments, calls, and arguments.
 - `backend/app/framework_intelligence.py`: evidence-backed Flask, Express, React, route, authentication, and authorization understanding.
 - `backend/app/application_context.py`: dependencies, service instances, database-operation candidates, and security context without effectiveness claims.
-- `backend/app/project_understanding.py`: project type, cross-file import resolution, project graph, and explicit ambiguous/unresolved relations.
+- `backend/app/project_understanding.py`: project type, cross-file import resolution, unified graph with file-level application nodes, manifest declarations, and explicit ambiguous/unresolved relations.
 - `backend/app/project_calls.py`: partial static Python cross-file call resolution for unique, top-level, unshadowed `from ... import ...` bindings, plus JavaScript named-import call resolution with explicit export evidence. Other calls and all cross-file data flow remain unresolved.
 - `backend/app/javascript_bindings.py`: tree-sitter evidence for direct JavaScript named imports, direct calls in top-level functions, and exported target functions. Rebinding, shadowing, nested callers, syntax errors, and unsupported import forms remain unresolved.
 - `frontend/src/pages/AnalysisProgressPage.jsx`: project ZIP results now display project type, file/import/route/call counts, observed frameworks, and up to eight statically evidenced cross-file calls with a clear non-exploitability caveat. Existing per-file presentation remains intact.
@@ -99,7 +99,8 @@ Current verified baseline: **146 backend tests passed** and the frontend product
 - `backend/app/auth.py`: explicit analysis principals, roles, and scopes.
 - `backend/app/analysis_store.py`: append-only SQLite records with HMAC-SHA256 integrity checks and owner enforcement.
 - `backend/app/workspace.py`: temporary workspace creation, path containment, and verified cleanup.
-- `backend/app/archive_intake.py`: bounded ZIP intake with traversal, symlink, collision, depth, count, size, nested-archive, and compression-ratio defenses.
+- `backend/app/archive_intake.py`: bounded ZIP intake with traversal, symlink, collision, depth, count, size, nested-archive, and compression-ratio defenses; safely reads a bounded set of dependency manifests.
+- `backend/app/manifest_intelligence.py`: read-only `package.json`/`requirements.txt` declarations, exact-version versus unresolved-range distinctions; no package installation or SCA vulnerability claim.
 - `backend/app/archive_service.py`: safe project analysis with per-file results and project understanding without executing source.
 - `backend/app/archive_routes.py`: authenticated archive-analysis API.
 - `frontend/src/api/client.js`: real no-store API client and structured error handling.
@@ -131,7 +132,7 @@ Current verified baseline: **146 backend tests passed** and the frontend product
 1. Keep the backend suite green and review only files changed by a failure.
 2. Configure a disposable isolation runtime before executing any uploaded code; keep verification blocked until then.
 3. Configure SMTP and the optional Codex advisor only through environment secrets.
-4. Expand the narrowly verified Python and JavaScript cross-file call subsets only with equivalent evidence; do not claim repository-level data-flow traces yet.
+4. Expand the narrowly verified Python and JavaScript cross-file call subsets only with equivalent evidence; do not claim repository-level data-flow traces yet. See `GOALS_1_TO_10_AUDIT.md` for objective-by-objective evidence and gaps.
 5. Execute exploitability verification, then root-cause remediation, functional tests, replay, re-scan, re-trace, closure evidence, and updated-artifact download in that order.
 
 ## Deferred by design

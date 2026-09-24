@@ -83,3 +83,30 @@ def test_shell_shebang_is_detected():
 
     assert result["candidate"] == "Shell"
     assert result["status"] == STATUS_CORROBORATED
+
+
+def test_syntax_can_identify_extensionless_python_and_javascript():
+    python = detect_language(None, "def run():\n    return 1\n")
+    javascript = detect_language(None, "function run() { return 1; }\n")
+
+    assert python["candidate"] == "Python"
+    assert python["status"] == STATUS_CORROBORATED
+    assert javascript["candidate"] == "JavaScript"
+    assert javascript["status"] == STATUS_CORROBORATED
+
+
+def test_distinctive_syntax_disagrees_with_extension_without_guessing():
+    result = detect_language(
+        "JavaScript", "def run():\n    return 1\n"
+    )
+
+    assert result["candidate"] is None
+    assert result["status"] == STATUS_CONFLICT
+    assert result["syntax_evidence"]["distinctive_language"] == "Python"
+
+
+def test_ambiguous_syntax_does_not_become_content_language_claim():
+    result = detect_language(None, "x = 1\n")
+
+    assert result["candidate"] is None
+    assert result["status"] == STATUS_UNKNOWN

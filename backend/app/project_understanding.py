@@ -8,8 +8,11 @@ from collections import Counter
 from app.project_calls import resolve_project_calls
 
 
-def build_project_understanding(file_results: list[dict]) -> dict:
-    frameworks = _framework_inventory(file_results)
+def build_project_understanding(
+    file_results: list[dict], manifests: list[dict] | None = None
+) -> dict:
+    manifests = manifests or []
+    frameworks = _framework_inventory(file_results, manifests)
     routes = _route_inventory(file_results)
     authentication_controls = _auth_inventory(file_results)
     import_relationships = _resolve_imports(file_results)
@@ -33,14 +36,28 @@ def build_project_understanding(file_results: list[dict]) -> dict:
         routes,
         import_relationships,
         cross_file_calls,
+        manifests,
     )
     return {
         "project_type": project_type,
+        "project_type_status": (
+            "CORROBORATED_STATIC"
+            if categories
+            and all(item["status"] == "CORROBORATED" for item in frameworks)
+            else "CANDIDATE"
+            if categories else "UNKNOWN"
+        ),
         "frameworks": frameworks,
         "routes": routes,
         "authentication_controls": authentication_controls,
         "import_relationships": import_relationships,
         "cross_file_calls": cross_file_calls,
+        "manifests": manifests,
+        "dependency_declarations": [
+            {"manifest": manifest["relative_path"], **dependency}
+            for manifest in manifests
+            for dependency in manifest["dependencies"]
+        ],
         "graph": graph,
         "counts": {
             "files": len(file_results),
@@ -56,6 +73,10 @@ def build_project_understanding(file_results: list[dict]) -> dict:
                 for item in import_relationships
             ),
             "resolved_cross_file_calls": len(cross_file_calls),
+            "manifests": len(manifests),
+            "dependency_declarations": sum(
+                len(item["dependencies"]) for item in manifests
+            ),
         },
         "claims": {
             "cross_file_call_resolution": (
@@ -70,13 +91,16 @@ def build_project_understanding(file_results: list[dict]) -> dict:
                 }
             ),
             "cross_file_data_flow": "UNRESOLVED",
+            "sca_vulnerability_check": "NOT_RUN",
             "frameworks_require_file_evidence": True,
             "authentication_effectiveness_proven": False,
         },
     }
 
 
-def _framework_inventory(file_results: list[dict]) -> list[dict]:
+def _framework_inventory(
+    file_results: list[dict], manifests: list[dict]
+) -> list[dict]:
     grouped: dict[str, dict] = {}
     for result in file_results:
         path = result["artifact"]["relative_path"]
@@ -88,6 +112,7 @@ def _framework_inventory(file_results: list[dict]) -> list[dict]:
                     "category": framework["category"],
                     "status": "CANDIDATE",
                     "evidence_files": [],
+                    "manifest_evidence_files": [],
                     "evidence_signals": set(),
                 },
             )
@@ -96,10 +121,27 @@ def _framework_inventory(file_results: list[dict]) -> list[dict]:
             if framework["status"] == "CORROBORATED":
                 item["status"] = "CORROBORATED"
 
+    known_names = {"react": "React", "flask": "Flask", "express": "Express"}
+    for manifest in manifests:
+        for dependency in manifest["dependencies"]:
+            framework_name = known_names.get(dependency["name"].casefold())
+            if framework_name not in grouped:
+                continue
+            item = grouped[framework_name]
+            item["manifest_evidence_files"].append(
+                manifest["relative_path"]
+            )
+            item["evidence_signals"].add("MANIFEST_DECLARATION")
+            item["status"] = "CORROBORATED"
+
     output = []
     for item in grouped.values():
         item["evidence_files"] = sorted(set(item["evidence_files"]))
+        item["manifest_evidence_files"] = sorted(
+            set(item["manifest_evidence_files"])
+        )
         item["evidence_signals"] = sorted(item["evidence_signals"])
+        item["runtime_verified"] = False
         output.append(item)
     return sorted(output, key=lambda item: item["name"])
 
@@ -140,11 +182,13 @@ def _build_project_graph(
     routes: list[dict],
     import_relationships: list[dict],
     cross_file_calls: list[dict],
+    manifests: list[dict],
 ) -> dict:
     nodes = []
     edges = []
     file_ids = {}
     framework_ids = {}
+    route_ids = {}
 
     for result in file_results:
         artifact = result["artifact"]
@@ -185,6 +229,14 @@ def _build_project_graph(
             route["methods"],
         )
         nodes.append({"id": node_id, "type": "ROUTE", "attributes": route})
+        route_ids[
+            (
+                route["file"],
+                route["start_line"],
+                route.get("path"),
+                tuple(route["methods"]),
+            )
+        ] = node_id
         edges.append(
             _edge("EXPOSES_ROUTE", file_ids[route["file"]], node_id, {})
         )
@@ -208,37 +260,65 @@ def _build_project_graph(
             )
         )
 
-    for call in cross_file_calls:
-        caller_id = _id("FUNCTION", call["source_file"], call["caller_id"])
-        callee_id = _id("FUNCTION", call["target_file"], call["callee_id"])
-        nodes.extend(
-            (
-                {
-                    "id": caller_id,
-                    "type": "FUNCTION",
-                    "attributes": {
-                        "file": call["source_file"],
-                        "name": call["caller"],
-                    },
-                },
-                {
-                    "id": callee_id,
-                    "type": "FUNCTION",
-                    "attributes": {
-                        "file": call["target_file"],
-                        "name": call["callee"],
-                    },
-                },
-            )
+    for manifest in manifests:
+        manifest_id = _id(
+            "MANIFEST", manifest["relative_path"], manifest["sha256"]
         )
-        edges.extend(
-            (
+        nodes.append(
+            {
+                "id": manifest_id,
+                "type": "MANIFEST",
+                "attributes": {
+                    "relative_path": manifest["relative_path"],
+                    "status": manifest["status"],
+                    "sha256": manifest["sha256"],
+                },
+            }
+        )
+        for framework in frameworks:
+            if manifest["relative_path"] in framework[
+                "manifest_evidence_files"
+            ]:
+                edges.append(
+                    _edge(
+                        "SUPPORTS_FRAMEWORK", manifest_id,
+                        framework_ids[framework["name"]],
+                        {"status": "DECLARED_ONLY"},
+                    )
+                )
+        for dependency in manifest["dependencies"]:
+            dependency_id = _id(
+                "DEPENDENCY_DECLARATION", manifest["relative_path"],
+                dependency["ecosystem"], dependency["name"],
+                dependency["scope"],
+            )
+            nodes.append(
+                {
+                    "id": dependency_id,
+                    "type": "DEPENDENCY_DECLARATION",
+                    "attributes": dependency,
+                }
+            )
+            edges.append(
                 _edge(
-                    "CONTAINS", file_ids[call["source_file"]], caller_id, {}
-                ),
-                _edge(
-                    "CONTAINS", file_ids[call["target_file"]], callee_id, {}
-                ),
+                    "DECLARES_DEPENDENCY", manifest_id, dependency_id,
+                    {"status": "DECLARED_ONLY"},
+                )
+            )
+
+    function_ids = _merge_file_models(
+        file_results, nodes, edges, file_ids, framework_ids, route_ids
+    )
+
+    for call in cross_file_calls:
+        caller_id = function_ids.get(
+            (call["source_file"], call["caller_id"])
+        )
+        callee_id = function_ids.get(
+            (call["target_file"], call["callee_id"])
+        )
+        if caller_id and callee_id:
+            edges.append(
                 _edge(
                     "CALLS",
                     caller_id,
@@ -248,9 +328,8 @@ def _build_project_graph(
                         "call_line": call["call_line"],
                         "import_line": call["import_line"],
                     },
-                ),
+                )
             )
-        )
 
     nodes = list({node["id"]: node for node in nodes}.values())
     edges = list({edge["id"]: edge for edge in edges}.values())
@@ -267,6 +346,82 @@ def _build_project_graph(
             "edges_by_type": dict(sorted(edge_counts.items())),
         },
     }
+
+
+def _merge_file_models(
+    file_results: list[dict],
+    nodes: list[dict],
+    edges: list[dict],
+    file_ids: dict[str, str],
+    framework_ids: dict[str, str],
+    route_ids: dict[tuple, str],
+) -> dict[tuple[str, str], str]:
+    function_ids = {}
+    for result in file_results:
+        path = result["artifact"]["relative_path"]
+        model = result["application_model"]
+        local_ids = {}
+        for node in model["nodes"]:
+            kind = node["type"]
+            attributes = node["attributes"]
+            location = node.get("evidence", {}).get("location", {})
+            if kind == "FILE":
+                node_id = file_ids[path]
+            elif kind == "FRAMEWORK":
+                node_id = framework_ids.get(attributes["name"])
+            elif kind == "ROUTE":
+                node_id = route_ids.get(
+                    (
+                        path,
+                        location.get("start_line"),
+                        attributes.get("path"),
+                        tuple(attributes.get("methods", [])),
+                    )
+                )
+            else:
+                node_id = None
+            if node_id is None:
+                node_id = _id("FILE_MODEL_NODE", path, node["id"])
+                nodes.append(
+                    {
+                        "id": node_id,
+                        "type": kind,
+                        "attributes": {"file": path, **attributes},
+                        "evidence": node.get("evidence", {}),
+                    }
+                )
+            local_ids[node["id"]] = node_id
+
+        for edge in model["edges"]:
+            if edge["type"] in {
+                "USES_FRAMEWORK", "EXPOSES_ROUTE", "PROVIDES_ROUTE"
+            }:
+                continue
+            source = local_ids.get(edge["source"])
+            target = local_ids.get(edge["target"])
+            if source and target:
+                edges.append(
+                    _edge(
+                        edge["type"], source, target,
+                        {"file": path, **edge.get("evidence", {})},
+                    )
+                )
+
+        for symbol in result["relationships"]["symbols"]:
+            matches = [
+                node for node in model["nodes"]
+                if node["type"] == "FUNCTION"
+                and node["attributes"].get("qualified_name")
+                == symbol["qualified_name"]
+                and node.get("evidence", {}).get("location", {}).get(
+                    "start_line"
+                ) == symbol["start_line"]
+            ]
+            if len(matches) == 1:
+                function_ids[(path, symbol["id"])] = local_ids[
+                    matches[0]["id"]
+                ]
+    return function_ids
 
 
 def _resolve_imports(file_results: list[dict]) -> list[dict]:

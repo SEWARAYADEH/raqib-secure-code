@@ -112,7 +112,9 @@ function ProjectSummary({ project, ar }) {
           <span className="eyebrow">{ar ? 'نموذج المشروع' : 'Project model'}</span>
           <h2>{ar ? 'العلاقات بين الملفات' : 'Cross-file relationships'}</h2>
         </div>
-        <StatusBadge tone="warning">{project.project_type ?? 'UNKNOWN_PROJECT'}</StatusBadge>
+        <StatusBadge tone="warning">
+          {project.project_type ?? 'UNKNOWN_PROJECT'} · {project.project_type_status ?? 'UNKNOWN'}
+        </StatusBadge>
       </div>
       <div className="analysis-metrics">
         <div><span>{ar ? 'ملفات' : 'Files'}</span><strong>{counts.files ?? 0}</strong></div>
@@ -120,6 +122,14 @@ function ProjectSummary({ project, ar }) {
         <div><span>{ar ? 'استيرادات غير محسومة' : 'Unresolved imports'}</span><strong>{counts.unresolved_imports ?? 0}</strong></div>
         <div><span>{ar ? 'استدعاءات بين الملفات' : 'Cross-file calls'}</span><strong>{counts.resolved_cross_file_calls ?? 0}</strong></div>
         <div><span>{ar ? 'مسارات HTTP' : 'HTTP routes'}</span><strong>{counts.routes ?? 0}</strong></div>
+        <div><span>{ar ? 'اعتماديات معلنة' : 'Declared dependencies'}</span><strong>{counts.dependency_declarations ?? 0}</strong></div>
+      </div>
+      <div className="analysis-paths">
+        <h3>{ar ? 'ملفات الاعتماديات' : 'Dependency manifests'}</h3>
+        {project.manifests?.length ? (
+          <p>{project.manifests.map((item) => `${item.relative_path} (${item.status})`).join(' · ')}</p>
+        ) : <p className="analysis-empty">{ar ? 'لا توجد ملفات اعتماديات مدعومة ضمن الأرشيف.' : 'No supported dependency manifest was found in the archive.'}</p>}
+        <p>{ar ? 'تم استخراج التصريحات فقط. لم يُنفذ فحص SCA لثغرات الحزم.' : 'Declarations only. Package vulnerability analysis (SCA) has not run.'}</p>
       </div>
       <div className="analysis-paths">
         <h3>{ar ? 'الأطر المرصودة' : 'Observed frameworks'}</h3>

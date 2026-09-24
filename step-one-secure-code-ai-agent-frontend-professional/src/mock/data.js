@@ -16,7 +16,7 @@ export const mockProjects = [
 
 export const mockAnalysisOptions = {
   scopes: [
-    { id: 'file', label: 'Code file', accept: '.py,.js,.jsx,.ts,.tsx,.php,.java,.cs' },
+    { id: 'file', label: 'Code file', accept: '.py,.js,.jsx' },
     { id: 'project', label: 'Full project', accept: '.zip' },
   ],
   scanProfiles: [

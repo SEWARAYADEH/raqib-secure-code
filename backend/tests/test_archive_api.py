@@ -106,3 +106,31 @@ def test_archive_api_rejects_archive_without_source(client):
     assert response.get_json()["error"]["code"] == (
         "INVALID_SOURCE_ARCHIVE"
     )
+
+
+@pytest.mark.parametrize(
+    "filename,content",
+    [
+        ("bad.py", b"\xff\xfe"),
+        ("empty.py", b""),
+        ("misnamed.js", b"def run():\n    return 1\n"),
+    ],
+)
+def test_archive_api_rejects_invalid_source_members_without_server_error(
+    client, filename, content
+):
+    test_client, workspace_root = client
+    response = test_client.post(
+        "/api/v1/analysis/archive",
+        data={
+            "archive": (
+                io.BytesIO(_zip({filename: content})),
+                "project.zip",
+            )
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["error"]["code"] == "INVALID_SOURCE_ARCHIVE"
+    assert list(workspace_root.iterdir()) == []

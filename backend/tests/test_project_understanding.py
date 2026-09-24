@@ -21,11 +21,11 @@ def test_project_understanding_combines_backend_and_frontend_evidence():
     assert project["routes"][0]["path"] == "/health"
     assert project["routes"][0]["file"] == "backend/app.py"
     assert project["claims"]["cross_file_call_resolution"] == "UNRESOLVED"
-    assert project["graph"]["counts"]["nodes_by_type"] == {
-        "FILE": 2,
-        "FRAMEWORK": 2,
-        "ROUTE": 1,
-    }
+    node_counts = project["graph"]["counts"]["nodes_by_type"]
+    assert node_counts["FILE"] == 2
+    assert node_counts["FRAMEWORK"] == 2
+    assert node_counts["ROUTE"] == 1
+    assert node_counts["FUNCTION"] == 2
 
 
 def test_unknown_project_stays_unknown_without_framework_evidence():
@@ -183,3 +183,28 @@ def test_project_requires_exported_javascript_target():
     project = build_project_understanding([source, target])
 
     assert project["cross_file_calls"] == []
+
+
+def test_project_graph_merges_local_security_evidence_without_dangling_edges():
+    source = analyze_source_file(
+        "app.py",
+        b'from flask import Flask, request\napp = Flask(__name__)\n'
+        b'@app.get("/item")\ndef item():\n'
+        b'    return request.args.get("id")\n',
+    )
+    source["artifact"]["relative_path"] = "backend/app.py"
+
+    graph = build_project_understanding([source])["graph"]
+    node_ids = {node["id"] for node in graph["nodes"]}
+    edge_types = {edge["type"] for edge in graph["edges"]}
+
+    assert {"FILE", "FUNCTION", "ROUTE", "SOURCE"}.issubset(
+        graph["counts"]["nodes_by_type"]
+    )
+    assert {"DECLARES", "HANDLED_BY", "ACCEPTS_INPUT_FROM"}.issubset(
+        edge_types
+    )
+    assert all(
+        edge["source"] in node_ids and edge["target"] in node_ids
+        for edge in graph["edges"]
+    )

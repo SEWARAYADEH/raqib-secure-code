@@ -35,4 +35,4 @@ Run the backend tests with `.\.venv\Scripts\python.exe -m pytest -q` from `backe
 
 Set `APP_ENV=production`, strong independent `SECRET_KEY`, `ANALYSIS_API_TOKEN`, `RECORD_INTEGRITY_KEY`, and `EMAIL_VERIFICATION_HMAC_KEY`, a private database path, and the exact HTTPS `FRONTEND_ORIGIN`. Real OTP also requires `VERIFICATION_ALLOWED_EMAILS`, `SMTP_USERNAME`, `SMTP_PASSWORD` (an app-specific credential), and `SMTP_SENDER`. Keep these values in the host secret store, never in Git. Run one backend worker until challenge state is moved to a shared store. A public GitHub repository is source hosting, not a running deployment.
 
-See [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for the verified implementation status and ordered remaining work.
+See [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for the verified implementation status and ordered remaining work, and [GOALS_1_TO_10_AUDIT.md](GOALS_1_TO_10_AUDIT.md) for the evidence and limits of the first ten goals.

@@ -7,6 +7,11 @@ import zipfile
 from pathlib import Path
 
 from app.intake import MAX_SOURCE_FILE_BYTES
+from app.manifest_intelligence import (
+    MANIFEST_NAMES,
+    MAX_MANIFEST_BYTES,
+    inspect_manifest,
+)
 from app.workspace import (
     AnalysisWorkspace,
     WorkspacePathError,
@@ -18,6 +23,7 @@ MAX_ARCHIVE_MEMBERS = 1_000
 MAX_SOURCE_FILES = 100
 MAX_TOTAL_EXPANDED_BYTES = 100 * 1024 * 1024
 MAX_TOTAL_SOURCE_BYTES = 20 * 1024 * 1024
+MAX_MANIFESTS = 20
 MAX_COMPRESSION_RATIO = 200
 SOURCE_EXTENSIONS = {".py", ".js", ".jsx"}
 NESTED_ARCHIVE_EXTENSIONS = {
@@ -61,6 +67,7 @@ def extract_source_archive(
         )
 
     files = []
+    manifests = []
     canonical_paths = set()
     total_expanded = 0
     total_source = 0
@@ -132,6 +139,40 @@ def extract_source_archive(
                         "Nested archives are not accepted."
                     )
 
+                basename = relative_path.rsplit("/", 1)[-1]
+                if (
+                    basename in MANIFEST_NAMES
+                    and not any(
+                        part in {"node_modules", "vendor", ".venv", "dist"}
+                        for part in relative_path.split("/")[:-1]
+                    )
+                ):
+                    if len(manifests) >= MAX_MANIFESTS:
+                        raise SourceArchiveValidationError(
+                            "Archive exceeds the manifest-count limit."
+                        )
+                    if member.file_size > MAX_MANIFEST_BYTES:
+                        manifests.append(
+                            {
+                                "relative_path": relative_path,
+                                "status": "TOO_LARGE",
+                                "size_bytes": member.file_size,
+                                "sha256": None,
+                                "dependencies": [],
+                                "unresolved_declarations": 0,
+                            }
+                        )
+                    else:
+                        manifests.append(
+                            inspect_manifest(
+                                relative_path,
+                                _read_bounded_member(
+                                    archive, member, MAX_MANIFEST_BYTES
+                                ),
+                            )
+                        )
+                    continue
+
                 if extension not in SOURCE_EXTENSIONS:
                     continue
 
@@ -180,6 +221,7 @@ def extract_source_archive(
         "size_bytes": len(content),
         "source_file_count": len(files),
         "total_source_bytes": total_source,
+        "manifests": manifests,
         "files": files,
     }
 
@@ -187,11 +229,12 @@ def extract_source_archive(
 def _read_bounded_member(
     archive: zipfile.ZipFile,
     member: zipfile.ZipInfo,
+    limit: int = MAX_SOURCE_FILE_BYTES,
 ) -> bytes:
     with archive.open(member, "r") as stream:
-        content = stream.read(MAX_SOURCE_FILE_BYTES + 1)
+        content = stream.read(limit + 1)
 
-    if len(content) > MAX_SOURCE_FILE_BYTES:
+    if len(content) > limit:
         raise SourceArchiveValidationError(
             "A source member exceeds the per-file limit."
         )

@@ -20,10 +20,6 @@ export default function NewAnalysisPage() {
   const { data: options, error, loading, reload } = useAsyncResource(getAnalysisOptions, []);
   const [scope, setScope] = useState('file');
   const [selectedFile, setSelectedFile] = useState(null);
-  const [profile, setProfile] = useState('deep');
-  const [standardsPack, setStandardsPack] = useState('core-web');
-  const [includePaths, setIncludePaths] = useState('');
-  const [excludePaths, setExcludePaths] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -41,6 +37,14 @@ export default function NewAnalysisPage() {
 
     if (!selectedFile) {
       setFormError(ar ? 'اختر ملفًا أو مشروعًا أولًا.' : 'Choose a file or project first.');
+      return;
+    }
+
+    const limit = scope === 'project' ? 20 * 1024 * 1024 : 2 * 1024 * 1024;
+    if (selectedFile.size === 0 || selectedFile.size > limit) {
+      setFormError(ar
+        ? `حجم الملف يجب أن يكون أكبر من صفر وأقل من ${bytesToLabel(limit)}.`
+        : `File size must be greater than zero and at most ${bytesToLabel(limit)}.`);
       return;
     }
 
@@ -62,10 +66,6 @@ export default function NewAnalysisPage() {
           input: {
             scope,
             fileName: selectedFile.name,
-            profile,
-            standardsPack,
-            includePaths,
-            excludePaths,
           },
         },
       });
@@ -88,8 +88,8 @@ export default function NewAnalysisPage() {
             <h1>{ar ? 'تحليل أمني جديد' : 'New security analysis'}</h1>
             <p>
               {ar
-                ? 'اختر ملف كود أو مشروع ZIP. يتم التحقق من المدخل وتحليله ساكنًا دون تشغيله.'
-                : 'Choose a code file or project ZIP. Input is validated and statically analyzed without execution.'}
+                ? 'اختر ملف Python أو JavaScript/JSX، أو مشروع ZIP بهذه اللغات. يفحص النظام المحتوى والبنية دون تشغيل الكود.'
+                : 'Choose a Python or JavaScript/JSX file, or a ZIP project in these languages. Content and structure are analyzed without execution.'}
             </p>
           </div>
         </div>
@@ -120,7 +120,7 @@ export default function NewAnalysisPage() {
                     <Icon name={item.id === 'file' ? 'file' : 'projects'} />
                     {item.id === 'file'
                       ? ar ? 'ملف كود' : 'Code file'
-                      : ar ? 'مشروع كامل' : 'Full project'}
+                      : ar ? 'مشروع ZIP' : 'ZIP project'}
                   </button>
                 ))}
               </div>
@@ -142,79 +142,10 @@ export default function NewAnalysisPage() {
                   {selectedFile
                     ? <span className="technical-value">{selectedFile.name} · {bytesToLabel(selectedFile.size)}</span>
                     : scope === 'file'
-                      ? ar ? 'ملف واحد للتحليل العميق.' : 'One file for focused analysis.'
+                      ? ar ? 'ملف واحد للتحليل الساكن.' : 'One file for static analysis.'
                       : ar ? 'ملف ZIP للمشروع ضمن حدود الاستخراج الآمن.' : 'Project ZIP with secure extraction limits.'}
                 </small>
               </label>
-            </fieldset>
-
-            <fieldset className="form-section">
-              <legend>{ar ? '3. إعدادات الفحص' : '3. Scan preparation'}</legend>
-              <div className="form-grid two-columns">
-                <label className="field-label">
-                  <span>{ar ? 'ملف الفحص' : 'Scan profile'}</span>
-                  <select onChange={(event) => setProfile(event.target.value)} value={profile}>
-                    {options.scanProfiles.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {ar
-                          ? item.id === 'quick'
-                            ? 'سريع'
-                            : item.id === 'standard'
-                              ? 'قياسي'
-                              : 'عميق'
-                          : item.label}
-                      </option>
-                    ))}
-                  </select>
-                  <small>{ar ? 'يُحفظ كخيار واجهة حتى يدعمه عقد التحليل.' : 'Stored as a UI preference until supported by the analysis contract.'}</small>
-                </label>
-
-                <label className="field-label">
-                  <span>{ar ? 'حزمة المعايير' : 'Standards pack'}</span>
-                  <select
-                    onChange={(event) => setStandardsPack(event.target.value)}
-                    value={standardsPack}
-                  >
-                    {options.standardsPacks.map((item) => (
-                      <option key={item.id} value={item.id}>{item.label}</option>
-                    ))}
-                  </select>
-                  <small>{ar ? 'لا يغيّر نتيجة المحرك الحالي.' : 'Does not alter the current engine result.'}</small>
-                </label>
-              </div>
-
-              <div className="form-grid two-columns">
-                <label className="field-label">
-                  <span>{ar ? 'المسارات المشمولة' : 'Include paths'}</span>
-                  <input
-                    className="technical-input"
-                    dir="ltr"
-                    onChange={(event) => setIncludePaths(event.target.value)}
-                    placeholder="app/, src/"
-                    type="text"
-                    value={includePaths}
-                  />
-                </label>
-
-                <label className="field-label">
-                  <span>{ar ? 'المسارات المستثناة' : 'Exclude paths'}</span>
-                  <input
-                    className="technical-input"
-                    dir="ltr"
-                    onChange={(event) => setExcludePaths(event.target.value)}
-                    placeholder="vendor/, dist/"
-                    type="text"
-                    value={excludePaths}
-                  />
-                </label>
-              </div>
-
-              <p className="backend-contract-note">
-                <Icon name="info" size={18} />
-                {ar
-                  ? 'المسارات والملف الأمني إعدادات مستقبلية ولا تُرسل حالياً؛ نوع الملف وحجمه ومحتواه تتحقق منها الـAPI.'
-                  : 'Path and profile controls are future settings and are not submitted yet; the API validates file type, size, and content.'}
-              </p>
             </fieldset>
 
             {formError ? <p className="form-error" role="alert">{formError}</p> : null}
