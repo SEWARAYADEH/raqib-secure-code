@@ -122,9 +122,45 @@ class AnalysisStore:
             "owner_subject": row["owner_subject"],
             "created_at": row["created_at"],
             "artifact_sha256": row["artifact_sha256"],
+            "persisted": True,
             "integrity": "HMAC-SHA256",
             "result": json.loads(row["result_json"]),
         }
+
+    def list_for_owner(self, owner_subject: str, limit: int = 20) -> list[dict]:
+        if not 1 <= limit <= 20:
+            raise ValueError("Analysis list limit must be between 1 and 20.")
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT analysis_id FROM analysis_records
+                WHERE owner_subject = ?
+                ORDER BY created_at DESC, analysis_id DESC
+                LIMIT ?
+                """,
+                (owner_subject, limit),
+            ).fetchall()
+
+        summaries = []
+        for row in rows:
+            record = self.get(row["analysis_id"])
+            result = record["result"]
+            artifact = result.get("artifact", {})
+            scope = result.get("analysis", {}).get("scope", "UNKNOWN")
+            summaries.append(
+                {
+                    "analysis_id": record["analysis_id"],
+                    "created_at": record["created_at"],
+                    "artifact_name": artifact.get("filename", "Unknown"),
+                    "scope": scope,
+                    "language": result.get("language", {}).get("candidate"),
+                    "project_type": result.get(
+                        "project_understanding", {}
+                    ).get("project_type"),
+                    "integrity": record["integrity"],
+                }
+            )
+        return summaries
 
     def _initialize(self) -> None:
         with self._connect() as connection:
@@ -138,6 +174,12 @@ class AnalysisStore:
                     result_json TEXT NOT NULL,
                     integrity_mac TEXT NOT NULL
                 )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS analysis_records_owner_created
+                ON analysis_records (owner_subject, created_at DESC)
                 """
             )
 

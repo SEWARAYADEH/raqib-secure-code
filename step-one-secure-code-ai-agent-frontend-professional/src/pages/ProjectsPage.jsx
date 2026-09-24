@@ -17,12 +17,12 @@ export default function ProjectsPage() {
     <AppShell>
       <section className="page-title-row">
         <div>
-          <span className="eyebrow">{ar ? 'مساحات العمل' : 'Workspaces'}</span>
-          <h1>{ar ? 'المشاريع' : 'Projects'}</h1>
+          <span className="eyebrow">{ar ? 'السجلات المحفوظة' : 'Saved records'}</span>
+          <h1>{ar ? 'التحليلات' : 'Analyses'}</h1>
           <p>
             {ar
-              ? 'افتح مشروعًا موجودًا أو ابدأ تحليلًا جديدًا. كل مشروع يقود إلى Workbench واحدة واضحة.'
-              : 'Open an existing project or prepare a new analysis. Every project leads to one focused workbench.'}
+              ? 'افتح نتائج تحليل محفوظ أو ابدأ تحليل ملف أو مشروع جديد. تظهر أحدث 20 نتيجة تملكها.'
+              : 'Open a saved analysis or start a new file or project analysis. Your latest 20 results appear here.'}
           </p>
         </div>
         <button className="button button-primary" onClick={() => navigate('/analysis/new')} type="button">
@@ -33,51 +33,43 @@ export default function ProjectsPage() {
 
       <AsyncState
         empty={!loading && !error && projects?.length === 0}
-        emptyLabel={ar ? 'لا توجد مشاريع بعد.' : 'No projects yet.'}
+        emptyLabel={ar ? 'لا توجد تحليلات محفوظة بعد.' : 'No saved analyses yet.'}
         error={error}
         loading={loading}
-        loadingLabel={ar ? 'تحميل المشاريع…' : 'Loading projects…'}
+        loadingLabel={ar ? 'تحميل التحليلات…' : 'Loading analyses…'}
         onRetry={reload}
       />
 
       {!loading && !error && projects?.length ? (
         <section className="project-list">
           {projects.map((project) => (
-            <article className="project-row" key={project.id}>
+            <article className="project-row" key={project.analysis_id}>
               <div className="project-icon">
                 <Icon name="code" />
               </div>
               <div className="project-main">
                 <div className="project-name-row">
-                  <h2>{project.name}</h2>
-                  <StatusBadge tone={project.status === 'Verified' ? 'success' : 'info'}>
-                    {ar
-                      ? project.status === 'Verified'
-                        ? 'تم التحقق'
-                        : 'تحليل تجريبي جاهز'
-                      : project.status}
+                  <h2><bdi dir="ltr">{project.artifact_name}</bdi></h2>
+                  <StatusBadge tone="info">
+                    {ar ? 'تحليل ساكن' : 'Static analysis'}
                   </StatusBadge>
-                  {project.demo ? (
-                    <StatusBadge tone="neutral">{ar ? 'بيانات تجريبية' : 'Demo data'}</StatusBadge>
-                  ) : null}
                 </div>
                 <p>
-                  <bdi dir="ltr">{project.type}</bdi> · <bdi dir="ltr">{project.language}</bdi> ·{' '}
-                  <bdi dir="ltr">{project.framework}</bdi>
+                  <bdi dir="ltr">{project.scope}</bdi> ·{' '}
+                  <bdi dir="ltr">{project.language ?? project.project_type ?? 'Unknown'}</bdi>
                 </p>
                 <div className="project-meta">
-                  <span className="technical-value">v{project.version}</span>
-                  <span className="technical-value">{project.branch}</span>
-                  <span>{ar ? `${project.findings} نتائج` : `${project.findings} findings`}</span>
-                  <span className="technical-value">{project.lastScan}</span>
+                  <span className="technical-value">{project.integrity}</span>
+                  <span className="technical-value">{project.analysis_id}</span>
+                  <span>{new Date(project.created_at).toLocaleString(ar ? 'ar-JO' : 'en-US')}</span>
                 </div>
               </div>
               <button
                 className="button button-secondary"
-                onClick={() => navigate(`/projects/${project.id}/workbench`)}
+                onClick={() => navigate(`/analysis/progress/${encodeURIComponent(project.analysis_id)}`)}
                 type="button"
               >
-                {ar ? 'فتح مساحة العمل' : 'Open workbench'}
+                {ar ? 'فتح النتيجة' : 'Open result'}
                 <Icon name="arrow" />
               </button>
             </article>

@@ -5,7 +5,6 @@ import {
   mockConfiguration,
   mockFindings,
   mockLiveOperation,
-  mockProjects,
   mockReport,
   mockScanSummary,
   mockTechnologyProfile,
@@ -14,7 +13,10 @@ import {
   workflowStages,
 } from '../mock/data';
 
-export const getProjects = () => mockRequest(mockProjects);
+export const getProjects = async () => {
+  const response = await apiRequest('/api/v1/analyses');
+  return response.analyses;
+};
 
 export const getAnalysisOptions = () => mockRequest(mockAnalysisOptions);
 export const getAnalysisProgress = () => mockRequest(mockAnalysisProgress);

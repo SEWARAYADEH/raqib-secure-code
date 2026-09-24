@@ -71,7 +71,7 @@ Sensors such as SAST, SCA, and AI may add evidence. They are not the reasoning o
 5. Added request IDs, no-store and defensive HTTP headers, JSON 413 errors, production secret validation, and disabled hardcoded Flask debug mode.
 6. Added `.gitignore` coverage for secrets, virtual environments, caches, builds, logs, and archives.
 
-Current verified baseline: **144 backend tests passed** and the frontend production build passed (76 transformed modules). A persistence smoke test returned `persisted: true`.
+Current verified baseline: **146 backend tests passed** and the frontend production build passed (76 transformed modules). A persistence smoke test returned `persisted: true`.
 
 ## Current module map
 
@@ -85,6 +85,7 @@ Current verified baseline: **144 backend tests passed** and the frontend product
 - `backend/app/javascript_bindings.py`: tree-sitter evidence for direct JavaScript named imports, direct calls in top-level functions, and exported target functions. Rebinding, shadowing, nested callers, syntax errors, and unsupported import forms remain unresolved.
 - `frontend/src/pages/AnalysisProgressPage.jsx`: project ZIP results now display project type, file/import/route/call counts, observed frameworks, and up to eight statically evidenced cross-file calls with a clear non-exploitability caveat. Existing per-file presentation remains intact.
 - Persisted analyses now navigate to `/analysis/progress/:analysisId`; refreshing that route loads the HMAC-verified, owner-scoped result through the existing read API. Non-persisted analyses still use navigation state and cannot be restored after refresh. Frontend build passed after this integration.
+- The analyses list is now real: `GET /api/v1/analyses` returns the latest 20 owner-scoped, HMAC-verified metadata summaries without source/result bodies. The `/projects` screen uses these records and opens saved results. Mock workbench, report, and other preview contracts remain separate and are not presented as verified analyses.
 - `backend/app/relationship_model.py`: conservative local call resolution.
 - `backend/app/security_semantics.py`: source/sink observations; no findings.
 - `backend/app/data_flow.py`: conservative intra-function evidence paths.

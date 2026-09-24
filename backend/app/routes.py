@@ -137,6 +137,39 @@ def analyze_source():
     )
 
 
+@api.get("/v1/analyses")
+def list_analyses():
+    principal = resolve_analysis_principal()
+    if principal is None:
+        return api_error(
+            status_code=401,
+            code="ANALYSIS_ACCESS_DENIED",
+            message="Analysis access is not authorized.",
+        )
+    if not principal.permits(SCOPE_ANALYSIS_READ):
+        return api_error(
+            status_code=403,
+            code="ANALYSIS_SCOPE_FORBIDDEN",
+            message="The principal cannot read analyses.",
+        )
+    store = current_app.extensions.get("analysis_store")
+    if store is None:
+        return api_error(
+            status_code=503,
+            code="ANALYSIS_STORE_DISABLED",
+            message="Immutable analysis storage is not enabled.",
+        )
+    try:
+        analyses = store.list_for_owner(principal.subject)
+    except AnalysisRecordIntegrityError:
+        return api_error(
+            status_code=500,
+            code="ANALYSIS_INTEGRITY_FAILURE",
+            message="An analysis record failed integrity verification.",
+        )
+    return jsonify({"request_id": g.request_id, "analyses": analyses})
+
+
 @api.get("/v1/analyses/<analysis_id>")
 def get_analysis(analysis_id: str):
     principal = resolve_analysis_principal()

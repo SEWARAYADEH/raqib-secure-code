@@ -58,6 +58,7 @@ def test_completed_analysis_is_persisted_and_verified(stored_app):
     )
 
     assert fetched.status_code == 200
+    assert fetched.get_json()["record"]["persisted"] is True
     assert fetched.get_json()["record"]["result"][
         "artifact"
     ]["filename"] == "example.py"
@@ -76,6 +77,58 @@ def test_record_owner_is_enforced(stored_app):
     assert response.get_json()["error"]["code"] == (
         "ANALYSIS_RECORD_FORBIDDEN"
     )
+
+
+def test_analysis_list_is_owner_scoped_and_metadata_only(stored_app):
+    client = stored_app.test_client()
+    record = _create(client).get_json()["record"]
+
+    own = client.get(
+        "/api/v1/analyses",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        environ_base={"REMOTE_ADDR": "203.0.113.10"},
+    )
+    other = client.get(
+        "/api/v1/analyses",
+        environ_base={"REMOTE_ADDR": "127.0.0.1"},
+    )
+
+    assert own.status_code == 200
+    assert own.get_json()["analyses"] == [
+        {
+            "analysis_id": record["analysis_id"],
+            "artifact_name": "example.py",
+            "created_at": record["created_at"],
+            "scope": "FILE",
+            "language": "Python",
+            "project_type": None,
+            "integrity": "HMAC-SHA256",
+        }
+    ]
+    assert other.status_code == 200
+    assert other.get_json()["analyses"] == []
+
+
+def test_analysis_list_rejects_tampered_record(stored_app):
+    client = stored_app.test_client()
+    record = _create(client).get_json()["record"]
+    with sqlite3.connect(
+        stored_app.config["ANALYSIS_DATABASE_PATH"]
+    ) as connection:
+        connection.execute(
+            "UPDATE analysis_records SET result_json = ? "
+            "WHERE analysis_id = ?",
+            ("{}", record["analysis_id"]),
+        )
+
+    response = client.get(
+        "/api/v1/analyses",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        environ_base={"REMOTE_ADDR": "203.0.113.10"},
+    )
+
+    assert response.status_code == 500
+    assert response.get_json()["error"]["code"] == "ANALYSIS_INTEGRITY_FAILURE"
 
 
 def test_tampered_record_is_rejected(stored_app):
