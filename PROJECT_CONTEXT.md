@@ -84,6 +84,7 @@ Current verified baseline: **144 backend tests passed** and the frontend product
 - `backend/app/project_calls.py`: partial static Python cross-file call resolution for unique, top-level, unshadowed `from ... import ...` bindings, plus JavaScript named-import call resolution with explicit export evidence. Other calls and all cross-file data flow remain unresolved.
 - `backend/app/javascript_bindings.py`: tree-sitter evidence for direct JavaScript named imports, direct calls in top-level functions, and exported target functions. Rebinding, shadowing, nested callers, syntax errors, and unsupported import forms remain unresolved.
 - `frontend/src/pages/AnalysisProgressPage.jsx`: project ZIP results now display project type, file/import/route/call counts, observed frameworks, and up to eight statically evidenced cross-file calls with a clear non-exploitability caveat. Existing per-file presentation remains intact.
+- Persisted analyses now navigate to `/analysis/progress/:analysisId`; refreshing that route loads the HMAC-verified, owner-scoped result through the existing read API. Non-persisted analyses still use navigation state and cannot be restored after refresh. Frontend build passed after this integration.
 - `backend/app/relationship_model.py`: conservative local call resolution.
 - `backend/app/security_semantics.py`: source/sink observations; no findings.
 - `backend/app/data_flow.py`: conservative intra-function evidence paths.

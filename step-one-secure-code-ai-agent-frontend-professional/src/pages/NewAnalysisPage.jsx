@@ -53,7 +53,10 @@ export default function NewAnalysisPage() {
         scope,
       });
       setSubmitting(false);
-      navigate('/analysis/progress', {
+      const resultPath = analysis.record?.persisted && analysis.record.analysis_id
+        ? `/analysis/progress/${encodeURIComponent(analysis.record.analysis_id)}`
+        : '/analysis/progress';
+      navigate(resultPath, {
         state: {
           analysis,
           input: {

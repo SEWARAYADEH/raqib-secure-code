@@ -1,5 +1,8 @@
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { getStoredAnalysis } from '../api/endpoints';
 import AppShell from '../components/AppShell';
+import AsyncState from '../components/AsyncState';
 import Icon from '../components/Icon';
 import StatusBadge from '../components/StatusBadge';
 import { useLanguage } from '../i18n';
@@ -142,10 +145,51 @@ function ProjectSummary({ project, ar }) {
 export default function AnalysisProgressPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { analysisId } = useParams();
   const { language } = useLanguage();
   const ar = language === 'ar';
-  const payload = location.state?.analysis;
-  if (!payload?.result) return <Navigate replace to="/analysis/new" />;
+  const [restored, setRestored] = useState(null);
+  const [restoreError, setRestoreError] = useState(null);
+  const [loading, setLoading] = useState(Boolean(analysisId));
+  const [restoreAttempt, setRestoreAttempt] = useState(0);
+  const inMemoryPayload = location.state?.analysis;
+
+  useEffect(() => {
+    if (!analysisId || inMemoryPayload?.result) return undefined;
+    let active = true;
+    setRestoreError(null);
+    setLoading(true);
+    getStoredAnalysis(analysisId)
+      .then(({ record }) => {
+        if (!record?.result) throw new Error('Saved analysis has no result.');
+        if (active) setRestored({ record, result: record.result });
+      })
+      .catch((error) => {
+        if (active) setRestoreError(error);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [analysisId, inMemoryPayload, restoreAttempt]);
+
+  const payload = inMemoryPayload?.result ? inMemoryPayload : restored;
+  if (!payload?.result && !analysisId) return <Navigate replace to="/analysis/new" />;
+  if (!payload?.result) {
+    return (
+      <AppShell>
+        <section className="progress-page analysis-results-page">
+          <div className="page-title-row compact"><h1>{ar ? 'نتيجة التحليل' : 'Analysis result'}</h1></div>
+          <AsyncState
+            error={restoreError}
+            loading={loading}
+            loadingLabel={ar ? 'استعادة النتيجة المحفوظة…' : 'Loading saved result…'}
+            onRetry={() => setRestoreAttempt((attempt) => attempt + 1)}
+          />
+        </section>
+      </AppShell>
+    );
+  }
 
   const files = (payload.result.files ?? [payload.result]).map((item) => summarizeFile(item, ar));
   const totalPaths = files.reduce((sum, file) => sum + file.paths.length, 0);

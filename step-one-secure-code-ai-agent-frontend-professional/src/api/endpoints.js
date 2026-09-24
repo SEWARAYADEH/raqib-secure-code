@@ -35,6 +35,10 @@ export function createAnalysis({ file, scope }) {
   );
 }
 
+export function getStoredAnalysis(analysisId) {
+  return apiRequest(`/api/v1/analyses/${encodeURIComponent(analysisId)}`);
+}
+
 export function requestEmailChallenge(email) {
   return apiRequest('/api/v1/auth/email-challenges', {
     method: 'POST',
