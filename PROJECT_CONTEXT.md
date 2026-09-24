@@ -71,7 +71,7 @@ Sensors such as SAST, SCA, and AI may add evidence. They are not the reasoning o
 5. Added request IDs, no-store and defensive HTTP headers, JSON 413 errors, production secret validation, and disabled hardcoded Flask debug mode.
 6. Added `.gitignore` coverage for secrets, virtual environments, caches, builds, logs, and archives.
 
-Current verified baseline: **141 backend tests passed** and the frontend production build passed (76 transformed modules). A persistence smoke test returned `persisted: true`.
+Current verified baseline: **144 backend tests passed** and the frontend production build passed (76 transformed modules). A persistence smoke test returned `persisted: true`.
 
 ## Current module map
 
@@ -81,7 +81,8 @@ Current verified baseline: **141 backend tests passed** and the frontend product
 - `backend/app/framework_intelligence.py`: evidence-backed Flask, Express, React, route, authentication, and authorization understanding.
 - `backend/app/application_context.py`: dependencies, service instances, database-operation candidates, and security context without effectiveness claims.
 - `backend/app/project_understanding.py`: project type, cross-file import resolution, project graph, and explicit ambiguous/unresolved relations.
-- `backend/app/project_calls.py`: partial static Python cross-file call resolution only for unique, top-level, unshadowed `from ... import ...` bindings. Other calls and all cross-file data flow remain unresolved.
+- `backend/app/project_calls.py`: partial static Python cross-file call resolution only for unique, top-level, unshadowed `from ... import ...` bindings. Other calls remain unresolved.
+- `backend/app/project_data_flow.py`: conservative one-boundary Python project trace that connects proven source-to-call-argument evidence to matching callee parameters and parameter-to-sink evidence. It records `OBSERVED` evidence only and never declares vulnerability or exploitability.
 - `backend/app/relationship_model.py`: conservative local call resolution.
 - `backend/app/security_semantics.py`: source/sink observations; no findings.
 - `backend/app/data_flow.py`: conservative intra-function evidence paths.
@@ -127,7 +128,7 @@ Current verified baseline: **141 backend tests passed** and the frontend product
 1. Keep the backend suite green and review only files changed by a failure.
 2. Configure a disposable isolation runtime before executing any uploaded code; keep verification blocked until then.
 3. Configure SMTP and the optional Codex advisor only through environment secrets.
-4. Expand the narrowly verified Python cross-file call subset and add JavaScript binding resolution only with equivalent evidence; do not claim repository-level data-flow traces yet.
+4. Expand the narrowly verified Python cross-file call/data-flow subset and add JavaScript binding resolution only with equivalent evidence. Current project data flow is explicitly limited to one proven Python file boundary with positional argument binding.
 5. Execute exploitability verification, then root-cause remediation, functional tests, replay, re-scan, re-trace, closure evidence, and updated-artifact download in that order.
 
 ## Deferred by design
@@ -135,5 +136,6 @@ Current verified baseline: **141 backend tests passed** and the frontend product
 - No uploaded-code execution or exploit testing because an approved isolation runtime is unavailable.
 - ZIP project intake is supported. Direct folder, repository URL, and running-application intake remain unsupported.
 - No vulnerability declaration, CWE/severity assignment, or verified-closed state.
+- Cross-file data flow is partial only: one statically resolved Python file boundary, positional argument-to-parameter binding, and evidence-only status.
 - No job queue, sandbox runtime, external SAST/SCA sensor, or enabled AI call yet.
 - No patch or updated download is exposed before verified exploitability and closure evidence.
