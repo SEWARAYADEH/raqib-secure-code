@@ -6,6 +6,7 @@ import posixpath
 from collections import Counter
 
 from app.project_calls import resolve_project_calls
+from app.project_data_flow import build_project_data_flow
 
 
 def build_project_understanding(file_results: list[dict]) -> dict:
@@ -15,6 +16,10 @@ def build_project_understanding(file_results: list[dict]) -> dict:
     import_relationships = _resolve_imports(file_results)
     cross_file_calls = resolve_project_calls(
         file_results, import_relationships
+    )
+    project_data_flow = build_project_data_flow(
+        file_results,
+        cross_file_calls,
     )
     categories = {item["category"] for item in frameworks}
 
@@ -41,6 +46,7 @@ def build_project_understanding(file_results: list[dict]) -> dict:
         "authentication_controls": authentication_controls,
         "import_relationships": import_relationships,
         "cross_file_calls": cross_file_calls,
+        "project_data_flow": project_data_flow,
         "graph": graph,
         "counts": {
             "files": len(file_results),
@@ -56,12 +62,19 @@ def build_project_understanding(file_results: list[dict]) -> dict:
                 for item in import_relationships
             ),
             "resolved_cross_file_calls": len(cross_file_calls),
+            "observed_cross_file_paths": project_data_flow[
+                "counts"
+            ]["observed_paths"],
         },
         "claims": {
             "cross_file_call_resolution": (
                 "PARTIAL_STATIC_PYTHON" if cross_file_calls else "UNRESOLVED"
             ),
-            "cross_file_data_flow": "UNRESOLVED",
+            "cross_file_data_flow": (
+                "PARTIAL_STATIC_PYTHON_ONE_BOUNDARY"
+                if project_data_flow["paths"]
+                else "UNRESOLVED"
+            ),
             "frameworks_require_file_evidence": True,
             "authentication_effectiveness_proven": False,
         },
