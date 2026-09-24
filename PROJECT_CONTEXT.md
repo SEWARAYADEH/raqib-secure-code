@@ -71,7 +71,7 @@ Sensors such as SAST, SCA, and AI may add evidence. They are not the reasoning o
 5. Added request IDs, no-store and defensive HTTP headers, JSON 413 errors, production secret validation, and disabled hardcoded Flask debug mode.
 6. Added `.gitignore` coverage for secrets, virtual environments, caches, builds, logs, and archives.
 
-Current verified baseline: **141 backend tests passed** and the frontend production build passed (76 transformed modules). A persistence smoke test returned `persisted: true`.
+Current verified baseline: **144 backend tests passed** and the frontend production build passed (76 transformed modules). A persistence smoke test returned `persisted: true`.
 
 ## Current module map
 
@@ -81,7 +81,8 @@ Current verified baseline: **141 backend tests passed** and the frontend product
 - `backend/app/framework_intelligence.py`: evidence-backed Flask, Express, React, route, authentication, and authorization understanding.
 - `backend/app/application_context.py`: dependencies, service instances, database-operation candidates, and security context without effectiveness claims.
 - `backend/app/project_understanding.py`: project type, cross-file import resolution, project graph, and explicit ambiguous/unresolved relations.
-- `backend/app/project_calls.py`: partial static Python cross-file call resolution only for unique, top-level, unshadowed `from ... import ...` bindings. Other calls and all cross-file data flow remain unresolved.
+- `backend/app/project_calls.py`: partial static Python cross-file call resolution for unique, top-level, unshadowed `from ... import ...` bindings, plus JavaScript named-import call resolution with explicit export evidence. Other calls and all cross-file data flow remain unresolved.
+- `backend/app/javascript_bindings.py`: tree-sitter evidence for direct JavaScript named imports, direct calls in top-level functions, and exported target functions. Rebinding, shadowing, nested callers, syntax errors, and unsupported import forms remain unresolved.
 - `backend/app/relationship_model.py`: conservative local call resolution.
 - `backend/app/security_semantics.py`: source/sink observations; no findings.
 - `backend/app/data_flow.py`: conservative intra-function evidence paths.
@@ -127,7 +128,7 @@ Current verified baseline: **141 backend tests passed** and the frontend product
 1. Keep the backend suite green and review only files changed by a failure.
 2. Configure a disposable isolation runtime before executing any uploaded code; keep verification blocked until then.
 3. Configure SMTP and the optional Codex advisor only through environment secrets.
-4. Expand the narrowly verified Python cross-file call subset and add JavaScript binding resolution only with equivalent evidence; do not claim repository-level data-flow traces yet.
+4. Expand the narrowly verified Python and JavaScript cross-file call subsets only with equivalent evidence; do not claim repository-level data-flow traces yet.
 5. Execute exploitability verification, then root-cause remediation, functional tests, replay, re-scan, re-trace, closure evidence, and updated-artifact download in that order.
 
 ## Deferred by design

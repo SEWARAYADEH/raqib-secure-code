@@ -59,7 +59,15 @@ def build_project_understanding(file_results: list[dict]) -> dict:
         },
         "claims": {
             "cross_file_call_resolution": (
-                "PARTIAL_STATIC_PYTHON" if cross_file_calls else "UNRESOLVED"
+                "PARTIAL_STATIC" if cross_file_calls else "UNRESOLVED"
+            ),
+            "cross_file_call_languages": sorted(
+                {
+                    "Python"
+                    if call["resolution"] == "STATIC_PYTHON_FROM_IMPORT"
+                    else "JavaScript"
+                    for call in cross_file_calls
+                }
             ),
             "cross_file_data_flow": "UNRESOLVED",
             "frameworks_require_file_evidence": True,

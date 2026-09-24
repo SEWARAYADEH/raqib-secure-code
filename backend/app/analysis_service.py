@@ -12,6 +12,7 @@ from app.language_detection import detect_language
 from app.interprocedural_flow import (
     build_inter_function_data_flow,
 )
+from app.javascript_bindings import javascript_binding_evidence
 from app.parser_engine import (
     LANGUAGE_CONFIG,
     parse_source,
@@ -125,6 +126,11 @@ def analyze_source_file(
         "python_binding_evidence": (
             python_binding_evidence(intake["source_text"])
             if candidate == "Python"
+            else None
+        ),
+        "javascript_binding_evidence": (
+            javascript_binding_evidence(intake["source_text"])
+            if candidate in {"JavaScript", "JavaScript JSX"}
             else None
         ),
         "relationships": relationships,

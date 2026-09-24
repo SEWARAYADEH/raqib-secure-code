@@ -5,7 +5,7 @@ Raqeeb accepts source files or ZIP projects, builds evidence-backed structure an
 ## Current scope
 
 - Safe bounded intake for a single file or ZIP project.
-- Python and JavaScript structure, framework routes, application relationships, and conservative data-flow observations. Cross-file call edges currently cover only statically proven Python `from ... import ...` function calls; cross-file data flow is unresolved.
+- Python and JavaScript structure, framework routes, application relationships, and conservative data-flow observations. Cross-file call edges cover narrow, statically evidenced Python `from ... import ...` and JavaScript named-import function calls; cross-file data flow is unresolved.
 - Candidate findings and an explicit verification lifecycle. Exploit replay and automatic patching remain blocked until an isolated execution environment is available.
 - Signed user sessions through short-lived email codes. SMTP credentials are required to deliver a real code.
 - Optional Codex advisor, disabled by default. Its output cannot verify closure.

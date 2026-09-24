@@ -110,6 +110,17 @@ def resolve_project_calls(
         source = files[source_file]
         target = files[target_file]
         if (
+            source["language"]["candidate"] in {"JavaScript", "JavaScript JSX"}
+            and target["language"]["candidate"]
+            in {"JavaScript", "JavaScript JSX"}
+        ):
+            resolved.extend(
+                _resolve_javascript_calls(
+                    relationship, source_file, target_file, source, target
+                )
+            )
+            continue
+        if (
             source["language"]["candidate"] != "Python"
             or target["language"]["candidate"] != "Python"
         ):
@@ -196,3 +207,62 @@ def resolve_project_calls(
             item["target_file"],
         ),
     )
+
+
+def _resolve_javascript_calls(
+    relationship: dict,
+    source_file: str,
+    target_file: str,
+    source: dict,
+    target: dict,
+) -> list[dict]:
+    source_proof = source.get("javascript_binding_evidence") or {}
+    target_proof = target.get("javascript_binding_evidence") or {}
+    resolved = []
+    for proof in source_proof.get("safe_calls", []):
+        if (
+            proof["import_line"] != relationship["line"]
+            or proof["module"] != relationship["module"]
+            or proof["imported_name"]
+            not in target_proof.get("exported_functions", [])
+        ):
+            continue
+        targets = [
+            symbol
+            for symbol in target["relationships"]["symbols"]
+            if symbol["name"] == proof["imported_name"]
+            and symbol["parent_function_id"] is None
+            and symbol["class_id"] is None
+        ]
+        callers = [
+            symbol
+            for symbol in source["relationships"]["symbols"]
+            if symbol["name"] == proof["caller"]
+            and symbol["start_line"] == proof["caller_line"]
+            and symbol["parent_function_id"] is None
+            and symbol["class_id"] is None
+        ]
+        calls = [
+            call
+            for call in source["relationships"]["unresolved_calls"]
+            if call["call_target"] == proof["binding"]
+            and call["line"] == proof["call_line"]
+            and callers
+            and call["caller_id"] == callers[0]["id"]
+        ]
+        if len(targets) != 1 or len(callers) != 1 or len(calls) != 1:
+            continue
+        resolved.append(
+            {
+                "source_file": source_file,
+                "caller": callers[0]["qualified_name"],
+                "caller_id": callers[0]["id"],
+                "target_file": target_file,
+                "callee": targets[0]["qualified_name"],
+                "callee_id": targets[0]["id"],
+                "call_line": proof["call_line"],
+                "import_line": relationship["line"],
+                "resolution": "STATIC_JAVASCRIPT_NAMED_IMPORT",
+            }
+        )
+    return resolved

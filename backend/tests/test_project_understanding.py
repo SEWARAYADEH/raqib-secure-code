@@ -88,7 +88,8 @@ def test_project_resolves_unshadowed_imported_python_function_call():
     assert len(project["cross_file_calls"]) == 1
     assert project["cross_file_calls"][0]["callee"] == "find_user"
     assert project["cross_file_calls"][0]["resolution"] == "STATIC_PYTHON_FROM_IMPORT"
-    assert project["claims"]["cross_file_call_resolution"] == "PARTIAL_STATIC_PYTHON"
+    assert project["claims"]["cross_file_call_resolution"] == "PARTIAL_STATIC"
+    assert project["claims"]["cross_file_call_languages"] == ["Python"]
     assert project["claims"]["cross_file_data_flow"] == "UNRESOLVED"
     assert project["graph"]["counts"]["edges_by_type"]["CALLS"] == 1
 
@@ -123,3 +124,62 @@ def test_project_rejects_rebound_python_import_binding():
         source["artifact"]["relative_path"] = "app.py"
         project = build_project_understanding([source, target])
         assert project["cross_file_calls"] == []
+
+
+def test_project_resolves_static_javascript_named_import_call():
+    source = analyze_source_file(
+        "main.js",
+        b'import { findUser as lookup } from "./user.js";\n'
+        b'export function main() { return lookup(); }\n',
+    )
+    source["artifact"]["relative_path"] = "src/main.js"
+    target = analyze_source_file(
+        "user.js", b"export function findUser() { return 1; }\n"
+    )
+    target["artifact"]["relative_path"] = "src/user.js"
+
+    project = build_project_understanding([source, target])
+
+    assert len(project["cross_file_calls"]) == 1
+    assert project["cross_file_calls"][0]["callee"] == "findUser"
+    assert project["cross_file_calls"][0]["resolution"] == (
+        "STATIC_JAVASCRIPT_NAMED_IMPORT"
+    )
+    assert project["graph"]["counts"]["edges_by_type"]["CALLS"] == 1
+    assert project["claims"]["cross_file_call_languages"] == ["JavaScript"]
+    assert project["claims"]["cross_file_data_flow"] == "UNRESOLVED"
+
+
+def test_project_does_not_invent_javascript_call_when_binding_is_shadowed():
+    source = analyze_source_file(
+        "main.js",
+        b'import { findUser as lookup } from "./user.js";\n'
+        b'function main(lookup) { return lookup(); }\n',
+    )
+    source["artifact"]["relative_path"] = "src/main.js"
+    target = analyze_source_file(
+        "user.js", b"export function findUser() { return 1; }\n"
+    )
+    target["artifact"]["relative_path"] = "src/user.js"
+
+    project = build_project_understanding([source, target])
+
+    assert project["cross_file_calls"] == []
+    assert "CALLS" not in project["graph"]["counts"]["edges_by_type"]
+
+
+def test_project_requires_exported_javascript_target():
+    source = analyze_source_file(
+        "main.js",
+        b'import { findUser } from "./user.js";\n'
+        b'function main() { return findUser(); }\n',
+    )
+    source["artifact"]["relative_path"] = "src/main.js"
+    target = analyze_source_file(
+        "user.js", b"function findUser() { return 1; }\n"
+    )
+    target["artifact"]["relative_path"] = "src/user.js"
+
+    project = build_project_understanding([source, target])
+
+    assert project["cross_file_calls"] == []
