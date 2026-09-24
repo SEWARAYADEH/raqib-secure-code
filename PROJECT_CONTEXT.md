@@ -71,7 +71,7 @@ Sensors such as SAST, SCA, and AI may add evidence. They are not the reasoning o
 5. Added request IDs, no-store and defensive HTTP headers, JSON 413 errors, production secret validation, and disabled hardcoded Flask debug mode.
 6. Added `.gitignore` coverage for secrets, virtual environments, caches, builds, logs, and archives.
 
-Current verified baseline: **138 backend tests passed** and the frontend production build passed (76 transformed modules). A persistence smoke test returned `persisted: true`.
+Current verified baseline: **141 backend tests passed** and the frontend production build passed (76 transformed modules). A persistence smoke test returned `persisted: true`.
 
 ## Current module map
 
@@ -81,6 +81,7 @@ Current verified baseline: **138 backend tests passed** and the frontend product
 - `backend/app/framework_intelligence.py`: evidence-backed Flask, Express, React, route, authentication, and authorization understanding.
 - `backend/app/application_context.py`: dependencies, service instances, database-operation candidates, and security context without effectiveness claims.
 - `backend/app/project_understanding.py`: project type, cross-file import resolution, project graph, and explicit ambiguous/unresolved relations.
+- `backend/app/project_calls.py`: partial static Python cross-file call resolution only for unique, top-level, unshadowed `from ... import ...` bindings. Other calls and all cross-file data flow remain unresolved.
 - `backend/app/relationship_model.py`: conservative local call resolution.
 - `backend/app/security_semantics.py`: source/sink observations; no findings.
 - `backend/app/data_flow.py`: conservative intra-function evidence paths.
@@ -112,7 +113,7 @@ Current verified baseline: **138 backend tests passed** and the frontend product
 
 - 2026-09-24 OTP diagnosis: the browser's `127.0.0.1:5173` origin was missing from local `FRONTEND_ORIGIN`; it is now allowed. A direct API request now reaches the email service and returns `503 EMAIL_DELIVERY_UNAVAILABLE` because SMTP credentials are absent. No real email has been delivered or verified.
 - Public repository preparation: personal address remains only in ignored `backend/.env`; tracked files contain no personal allowlist, secret, or analysis database. Root `README.md` states the current implementation limits.
-- Public repository: `https://github.com/SEWARAYADEH/raqib-secure-code` on `main`. GitHub Actions checks backend tests and frontend build on pushes and pull requests. The first CI run exposed two tests dependent on local `.env`; they now set the required HMAC value explicitly. Confirm the follow-up run before calling CI green.
+- Public repository: `https://github.com/SEWARAYADEH/raqib-secure-code` on `main`. GitHub Actions checks backend tests and frontend build on pushes and pull requests. The environment-independent test fix passed both CI jobs in run `35981311858`; recheck CI after each push.
 - Hostinger mailbox `raqib@alaseeltech.com` exists. Local ignored `backend/.env` has `smtp.hostinger.com`, SSL port 465, and this mailbox as SMTP username/sender. `SMTP_PASSWORD` is empty, so OTP is still unavailable. Mailbox password setup and entry into `.env` require user handling; never commit or print it.
 - Hostinger accepted `raqib.alaseeltech.com` as the domain for a new PHP/HTML site. The site contains no deployed Raqeeb frontend or backend. DNS/HTTPS and actual deployment are unverified; GitHub is source hosting, not running application hosting.
 - Local immutable analysis storage is enabled in ignored `backend/.env`; secrets and integrity keys are random and at least 32 characters.
@@ -126,7 +127,7 @@ Current verified baseline: **138 backend tests passed** and the frontend product
 1. Keep the backend suite green and review only files changed by a failure.
 2. Configure a disposable isolation runtime before executing any uploaded code; keep verification blocked until then.
 3. Configure SMTP and the optional Codex advisor only through environment secrets.
-4. Add verified cross-file symbol/call resolution beyond the completed import graph before claiming repository-level traces.
+4. Expand the narrowly verified Python cross-file call subset and add JavaScript binding resolution only with equivalent evidence; do not claim repository-level data-flow traces yet.
 5. Execute exploitability verification, then root-cause remediation, functional tests, replay, re-scan, re-trace, closure evidence, and updated-artifact download in that order.
 
 ## Deferred by design

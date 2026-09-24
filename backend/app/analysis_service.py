@@ -17,6 +17,7 @@ from app.parser_engine import (
     parse_source,
 )
 from app.pipeline_state import build_pipeline_state
+from app.project_calls import python_binding_evidence
 from app.relationship_model import build_relationship_model
 from app.security_semantics import (
     classify_security_semantics,
@@ -121,6 +122,11 @@ def analyze_source_file(
         "artifact": artifact,
         "language": language,
         "structure": parsed,
+        "python_binding_evidence": (
+            python_binding_evidence(intake["source_text"])
+            if candidate == "Python"
+            else None
+        ),
         "relationships": relationships,
         "application_understanding": understanding,
         "security_semantics": semantics,

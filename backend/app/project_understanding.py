@@ -5,12 +5,17 @@ import json
 import posixpath
 from collections import Counter
 
+from app.project_calls import resolve_project_calls
+
 
 def build_project_understanding(file_results: list[dict]) -> dict:
     frameworks = _framework_inventory(file_results)
     routes = _route_inventory(file_results)
     authentication_controls = _auth_inventory(file_results)
     import_relationships = _resolve_imports(file_results)
+    cross_file_calls = resolve_project_calls(
+        file_results, import_relationships
+    )
     categories = {item["category"] for item in frameworks}
 
     if "WEB_API" in categories and "FRONTEND_UI" in categories:
@@ -27,6 +32,7 @@ def build_project_understanding(file_results: list[dict]) -> dict:
         frameworks,
         routes,
         import_relationships,
+        cross_file_calls,
     )
     return {
         "project_type": project_type,
@@ -34,6 +40,7 @@ def build_project_understanding(file_results: list[dict]) -> dict:
         "routes": routes,
         "authentication_controls": authentication_controls,
         "import_relationships": import_relationships,
+        "cross_file_calls": cross_file_calls,
         "graph": graph,
         "counts": {
             "files": len(file_results),
@@ -48,9 +55,12 @@ def build_project_understanding(file_results: list[dict]) -> dict:
                 item["status"] != "RESOLVED"
                 for item in import_relationships
             ),
+            "resolved_cross_file_calls": len(cross_file_calls),
         },
         "claims": {
-            "cross_file_call_resolution": "UNRESOLVED",
+            "cross_file_call_resolution": (
+                "PARTIAL_STATIC_PYTHON" if cross_file_calls else "UNRESOLVED"
+            ),
             "cross_file_data_flow": "UNRESOLVED",
             "frameworks_require_file_evidence": True,
             "authentication_effectiveness_proven": False,
@@ -121,6 +131,7 @@ def _build_project_graph(
     frameworks: list[dict],
     routes: list[dict],
     import_relationships: list[dict],
+    cross_file_calls: list[dict],
 ) -> dict:
     nodes = []
     edges = []
@@ -188,6 +199,53 @@ def _build_project_graph(
                 },
             )
         )
+
+    for call in cross_file_calls:
+        caller_id = _id("FUNCTION", call["source_file"], call["caller_id"])
+        callee_id = _id("FUNCTION", call["target_file"], call["callee_id"])
+        nodes.extend(
+            (
+                {
+                    "id": caller_id,
+                    "type": "FUNCTION",
+                    "attributes": {
+                        "file": call["source_file"],
+                        "name": call["caller"],
+                    },
+                },
+                {
+                    "id": callee_id,
+                    "type": "FUNCTION",
+                    "attributes": {
+                        "file": call["target_file"],
+                        "name": call["callee"],
+                    },
+                },
+            )
+        )
+        edges.extend(
+            (
+                _edge(
+                    "CONTAINS", file_ids[call["source_file"]], caller_id, {}
+                ),
+                _edge(
+                    "CONTAINS", file_ids[call["target_file"]], callee_id, {}
+                ),
+                _edge(
+                    "CALLS",
+                    caller_id,
+                    callee_id,
+                    {
+                        "resolution": call["resolution"],
+                        "call_line": call["call_line"],
+                        "import_line": call["import_line"],
+                    },
+                ),
+            )
+        )
+
+    nodes = list({node["id"]: node for node in nodes}.values())
+    edges = list({edge["id"]: edge for edge in edges}.values())
 
     node_counts = Counter(node["type"] for node in nodes)
     edge_counts = Counter(edge["type"] for edge in edges)
