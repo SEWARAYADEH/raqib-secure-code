@@ -157,6 +157,123 @@ def build_inter_function_data_flow(
     }
 
 
+
+def build_source_argument_evidence(
+    *,
+    parsed: dict,
+    relationships: dict,
+    semantics: dict,
+    control_flow: dict,
+    caller_id: str,
+    call_target: str,
+    call_line: int,
+) -> list[dict]:
+    """Return proven source-to-argument evidence for one resolved call."""
+    symbols = relationships.get("symbols", [])
+    caller = next(
+        (item for item in symbols if item["id"] == caller_id),
+        None,
+    )
+    if caller is None:
+        return []
+
+    calls = [
+        call
+        for call in parsed.get("calls", [])
+        if call.get("target") == call_target
+        and call.get("start_line") == call_line
+        and _contains(caller, call)
+    ]
+    if len(calls) != 1:
+        return []
+
+    call = calls[0]
+    controls = semantics.get("security_controls", [])
+    evidence = []
+    for source in semantics.get("sources", []):
+        if _find_scope(source, symbols) is not caller:
+            continue
+
+        states = _build_source_states(
+            source=source,
+            scope=caller,
+            symbols=symbols,
+            assignments=parsed.get("assignments", []),
+            controls=controls,
+            control_flow=control_flow,
+        )
+        for argument_index, argument in enumerate(
+            call.get("argument_values", [])
+        ):
+            trace = _trace_source_to_argument(
+                source=source,
+                source_states=states,
+                argument=argument,
+                call=call,
+                control_flow=control_flow,
+            )
+            if trace is None:
+                continue
+            evidence.append(
+                {
+                    "argument_index": argument_index,
+                    "source": _endpoint(source),
+                    "trace": trace,
+                    "controls_observed": [
+                        step
+                        for step in trace
+                        if step["kind"] == SEMANTIC_CONTROL
+                    ],
+                    "evidence_strength": source.get(
+                        "evidence_strength",
+                        "HEURISTIC",
+                    ),
+                }
+            )
+    return evidence
+
+
+def build_parameter_sink_evidence(
+    *,
+    parsed: dict,
+    relationships: dict,
+    semantics: dict,
+    control_flow: dict,
+    callee_id: str,
+) -> list[dict]:
+    """Return proven parameter-to-sink evidence for one local function."""
+    symbols = relationships.get("symbols", [])
+    summaries = _build_parameter_sink_summaries(
+        symbols=symbols,
+        assignments=parsed.get("assignments", []),
+        calls=parsed.get("calls", []),
+        sinks=semantics.get("sinks", []),
+        controls=semantics.get("security_controls", []),
+        control_flow=control_flow,
+    )
+    evidence = []
+    for summary in summaries.get(callee_id, []):
+        trace = list(summary["trace"])
+        evidence.append(
+            {
+                "parameter_index": summary["parameter_index"],
+                "parameter_name": summary["parameter_name"],
+                "sink": _endpoint(summary["sink"]),
+                "trace": trace,
+                "controls_observed": [
+                    step
+                    for step in trace
+                    if step["kind"] == SEMANTIC_CONTROL
+                ],
+                "evidence_strength": summary["sink"].get(
+                    "evidence_strength",
+                    "HEURISTIC",
+                ),
+            }
+        )
+    return evidence
+
+
 def _build_parameter_sink_summaries(
     *,
     symbols: list,
