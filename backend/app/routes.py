@@ -22,6 +22,12 @@ from app.auth import (
     SCOPE_ANALYSIS_READ,
     resolve_analysis_principal,
 )
+from app.codex_advisor import (
+    AdvisorConfig,
+    AdvisorUnavailable,
+    CodexAdvisor,
+    build_minimal_advisor_context,
+)
 from app.intake import (
     MAX_SOURCE_FILE_BYTES,
     SourceFileValidationError,
@@ -220,6 +226,121 @@ def list_analyses():
             message="An analysis record failed integrity verification.",
         )
     return jsonify({"request_id": g.request_id, "analyses": analyses})
+
+
+@api.post("/v1/analyses/<analysis_id>/advisor")
+def advise_on_analysis_finding(analysis_id: str):
+    principal = resolve_analysis_principal()
+    if principal is None:
+        return api_error(
+            status_code=401,
+            code="ANALYSIS_ACCESS_DENIED",
+            message="Analysis access is not authorized.",
+        )
+    if not principal.permits(SCOPE_ANALYSIS_READ):
+        return api_error(
+            status_code=403,
+            code="ANALYSIS_SCOPE_FORBIDDEN",
+            message="The principal cannot read analyses.",
+        )
+
+    try:
+        normalized_id = str(uuid.UUID(analysis_id))
+    except ValueError:
+        return api_error(
+            status_code=404,
+            code="ANALYSIS_NOT_FOUND",
+            message="The requested analysis does not exist.",
+        )
+
+    store = current_app.extensions.get("analysis_store")
+    if store is None:
+        return api_error(
+            status_code=503,
+            code="ANALYSIS_STORE_DISABLED",
+            message="Immutable analysis storage is not enabled.",
+        )
+
+    try:
+        record = store.get(normalized_id)
+    except AnalysisRecordNotFoundError:
+        return api_error(
+            status_code=404,
+            code="ANALYSIS_NOT_FOUND",
+            message="The requested analysis does not exist.",
+        )
+    except AnalysisRecordIntegrityError:
+        return api_error(
+            status_code=500,
+            code="ANALYSIS_INTEGRITY_FAILURE",
+            message="The analysis record failed integrity verification.",
+        )
+
+    if record["owner_subject"] != principal.subject:
+        return api_error(
+            status_code=403,
+            code="ANALYSIS_RECORD_FORBIDDEN",
+            message="The analysis belongs to another principal.",
+        )
+
+    analysis = record["result"]
+    if isinstance(analysis.get("files"), list):
+        return api_error(
+            status_code=422,
+            code="ADVISOR_SCOPE_NOT_SUPPORTED",
+            message=(
+                "AI advisory is currently limited to stored single-file "
+                "analyses with evidence-gated findings."
+            ),
+        )
+
+    payload = request.get_json(silent=True)
+    finding_id = payload.get("finding_id") if isinstance(payload, dict) else None
+    if not isinstance(finding_id, str) or not finding_id.strip():
+        return api_error(
+            status_code=400,
+            code="INVALID_REQUEST",
+            message="finding_id is required.",
+        )
+
+    config = AdvisorConfig(
+        enabled=bool(current_app.config["CODEX_ADVISOR_ENABLED"]),
+        api_key=current_app.config["OPENAI_API_KEY"],
+        model=current_app.config["OPENAI_MODEL"],
+        max_context_characters=current_app.config[
+            "CODEX_CONTEXT_MAX_CHARACTERS"
+        ],
+    )
+    try:
+        context = build_minimal_advisor_context(
+            analysis=analysis,
+            finding_id=finding_id.strip(),
+            max_characters=config.max_context_characters,
+        )
+    except ValueError:
+        return api_error(
+            status_code=404,
+            code="FINDING_NOT_FOUND",
+            message="The requested finding does not exist in this analysis.",
+        )
+
+    try:
+        advice = CodexAdvisor(config).advise(context)
+    except AdvisorUnavailable as exc:
+        return api_error(
+            status_code=503,
+            code="AI_ADVISOR_UNAVAILABLE",
+            message=str(exc),
+        )
+
+    return jsonify(
+        {
+            "request_id": g.request_id,
+            "analysis_id": normalized_id,
+            "finding_id": finding_id.strip(),
+            "result": advice,
+        }
+    )
 
 
 @api.get("/v1/analyses/<analysis_id>")
