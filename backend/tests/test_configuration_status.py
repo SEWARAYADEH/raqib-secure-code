@@ -17,6 +17,9 @@ def test_configuration_status_exposes_flags_without_secret_values():
     assert response.json["ai"]["model"] == "test-model"
     assert response.json["analysis"]["uploaded_code_execution"] is False
     assert response.json["analysis"]["osv_advisory_lookup_enabled"] is True
+    assert response.json["storage"]["analysis_records"] == "OWNER_SCOPED_APPEND_ONLY"
+    assert response.json["storage"]["uploaded_source_retention"] == "TEMPORARY_WORKSPACE_ONLY"
+    assert response.json["storage"]["original_overwritten"] is False
     assert "unit-test-secret-do-not-return" not in response.get_data(as_text=True)
 
 
