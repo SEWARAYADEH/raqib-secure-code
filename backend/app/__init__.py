@@ -1,7 +1,7 @@
 from pathlib import Path
 import secrets
 
-from flask import Flask
+from flask import Flask, abort, send_from_directory
 from flask_cors import CORS
 
 from config import Config
@@ -76,6 +76,8 @@ def create_app(config_overrides: dict | None = None):
     if app.config["EMAIL_VERIFICATION_ENABLED"]:
         app.register_blueprint(email_verification_api)
 
+    _register_frontend_routes(app)
+
     return app
 
 
@@ -137,3 +139,48 @@ def _validate_security_config(app) -> None:
             raise RuntimeError(
                 "Immutable storage requires a strong RECORD_INTEGRITY_KEY."
             )
+
+
+def _register_frontend_routes(app) -> None:
+    configured = app.config.get("FRONTEND_DIST_PATH")
+    frontend_dist = (
+        Path(configured).resolve()
+        if configured
+        else (
+            Path(__file__).resolve().parents[2]
+            / "step-one-secure-code-ai-agent-frontend-professional"
+            / "dist"
+        ).resolve()
+    )
+
+    def serve_path(relative_path: str):
+        if relative_path == "api" or relative_path.startswith("api/"):
+            abort(404)
+
+        candidate = (frontend_dist / relative_path).resolve()
+        try:
+            candidate.relative_to(frontend_dist)
+        except ValueError:
+            abort(404)
+
+        if relative_path and candidate.is_file():
+            return send_from_directory(frontend_dist, relative_path)
+
+        index_file = frontend_dist / "index.html"
+        if index_file.is_file():
+            return send_from_directory(frontend_dist, "index.html")
+
+        abort(404)
+
+    app.add_url_rule(
+        "/",
+        endpoint="frontend_index",
+        view_func=lambda: serve_path(""),
+        methods=["GET"],
+    )
+    app.add_url_rule(
+        "/<path:frontend_path>",
+        endpoint="frontend_spa",
+        view_func=serve_path,
+        methods=["GET"],
+    )
