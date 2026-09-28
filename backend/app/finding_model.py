@@ -3,6 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 
+from app.security_packs.sql_injection import (
+    QUERY_TEXT_INFLUENCE,
+    assess_sql_path,
+)
+
 
 STANDARD_CANDIDATES = {
     "os_command_execution": {
@@ -27,6 +32,7 @@ STANDARD_CANDIDATES = {
 def build_finding_candidates(
     *,
     artifact: dict,
+    parsed: dict,
     intra_function_flow: dict,
     inter_function_flow: dict,
 ) -> dict:
@@ -34,15 +40,31 @@ def build_finding_candidates(
         *(intra_function_flow.get("paths", [])),
         *(inter_function_flow.get("paths", [])),
     ]
-    candidates = [
-        _candidate_from_path(artifact, path)
-        for path in paths
-    ]
+    candidates = []
+    non_candidates = []
+    for path in paths:
+        if path["sink"]["category"] == "sql_execution_candidate":
+            assessment = assess_sql_path(path, parsed)
+            if assessment["status"] != QUERY_TEXT_INFLUENCE:
+                non_candidates.append({
+                    "source": path["source"],
+                    "sink": path["sink"],
+                    "trace": path["trace"],
+                    "assessment": assessment,
+                })
+                continue
+            candidate = _candidate_from_path(artifact, path)
+            candidate["pack_assessment"] = assessment
+            candidates.append(candidate)
+        else:
+            candidates.append(_candidate_from_path(artifact, path))
     return {
         "schema_version": "1.0",
         "candidates": candidates,
+        "non_candidates": non_candidates,
         "counts": {
             "candidates": len(candidates),
+            "non_candidate_paths": len(non_candidates),
             "verified_vulnerabilities": 0,
             "closed_findings": 0,
         },

@@ -25,8 +25,7 @@ export default function AppShell({ children }) {
 
   const projectItems = projectId
     ? [
-        { key: 'findings', icon: 'findings', to: `/projects/${projectId}/findings`, label: ar ? 'النتائج' : 'Findings' },
-        { key: 'workbench', icon: 'code', to: `/projects/${projectId}/workbench`, label: ar ? 'مساحة العمل' : 'Workbench' },
+        { key: 'analysis', icon: 'scan', to: `/analysis/progress/${projectId}`, label: ar ? 'التحليل' : 'Analysis' },
         { key: 'report', icon: 'report', to: `/projects/${projectId}/report`, label: ar ? 'التقرير' : 'Report' },
       ]
     : [];

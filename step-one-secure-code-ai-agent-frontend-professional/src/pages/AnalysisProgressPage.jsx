@@ -14,6 +14,7 @@ function summarizeFile(result, ar) {
   const crossFunctionPaths = result.inter_function_data_flow?.counts?.observed_paths ?? 0;
   const understanding = result.application_understanding ?? {};
   const findings = result.security_analysis?.candidates ?? [];
+  const nonCandidates = result.security_analysis?.non_candidates ?? [];
   const verificationPlans = result.exploitability_verification?.plans ?? [];
   return {
     name: result.artifact?.relative_path ?? result.artifact?.filename ?? 'source',
@@ -34,7 +35,9 @@ function summarizeFile(result, ar) {
     role: understanding.project_role ?? 'UNKNOWN_COMPONENT',
     frameworks: understanding.frameworks ?? [],
     findings,
+    nonCandidates,
     verificationPlans,
+    stages: result.pipeline?.stages ?? [],
     paths: [...(result.data_flow?.paths ?? []), ...(result.inter_function_data_flow?.paths ?? [])],
   };
 }
@@ -99,7 +102,23 @@ function AnalysisFileCard({ file, ar }) {
             </div>
           );
         }) : <p className="analysis-empty">{ar ? 'لا توجد مرشحات نتائج مبنية على مسار مثبت.' : 'No finding candidates were produced from an established path.'}</p>}
+        {file.nonCandidates.length ? (
+          <div className="analysis-path">
+            <strong>{ar ? 'مسارات رُصدت ولم تصبح نتيجة' : 'Observed paths not promoted to findings'}</strong>
+            {file.nonCandidates.map((item, index) => (
+              <p key={`${item.sink?.start_line}:${index}`}>
+                <code dir="ltr">{item.assessment?.pack} · {item.assessment?.status} · {item.assessment?.basis}</code>
+              </p>
+            ))}
+          </div>
+        ) : null}
       </div>
+      <details className="analysis-paths">
+        <summary>{ar ? 'حالة مراحل التحليل والتحقق' : 'Analysis and verification stage status'}</summary>
+        <ol>{file.stages.map((stage) => (
+          <li key={stage.name}><code dir="ltr">{stage.name} · {stage.status}</code></li>
+        ))}</ol>
+      </details>
     </article>
   );
 }
@@ -243,9 +262,21 @@ export default function AnalysisProgressPage() {
           <div><span>{ar ? 'سياسة النتائج' : 'Finding policy'}</span><strong>EVIDENCE_GATED_CANDIDATES</strong></div>
           <div><span>{ar ? 'الحفظ' : 'Persistence'}</span><strong>{persisted ? 'HMAC-SHA256' : (ar ? 'غير مفعّل محليًا' : 'Local persistence disabled')}</strong></div>
         </div>
+        <section className="analysis-result-card" aria-label={ar ? 'تغطية الحزم الأمنية' : 'Security pack coverage'}>
+          <div className="analysis-result-head"><div><span className="eyebrow">{ar ? 'نطاق النسخة المركّزة' : 'Focused scope'}</span><h2>{ar ? 'خمس حزم أمنية' : 'Five security packs'}</h2></div></div>
+          <div className="analysis-metrics">
+            {(payload.result.security_packs ?? []).map((pack) => (
+              <div key={pack.id}><span>{pack.id.replaceAll('_', ' ')}</span><strong>{pack.status}</strong></div>
+            ))}
+          </div>
+          <p>{ar ? 'حالة الحزمة تصف قدرة المحرك الحالية، ولا تعني أن المشروع المرفوع خالٍ من هذه الثغرة.' : 'Pack status describes current engine coverage, not whether the uploaded project is free of that weakness.'}</p>
+        </section>
         <ProjectSummary ar={ar} project={payload.result.project_understanding} />
         <div className="analysis-result-list">{files.map((file) => <AnalysisFileCard ar={ar} file={file} key={file.name} />)}</div>
         <div className="progress-actions">
+          {persisted && payload.record?.analysis_id ? (
+            <button className="button button-secondary" onClick={() => navigate(`/projects/${encodeURIComponent(payload.record.analysis_id)}/report`)} type="button"><Icon name="report" />{ar ? 'التقرير الحقيقي' : 'Evidence report'}</button>
+          ) : null}
           <button className="button button-ghost" onClick={() => navigate('/analysis/new')} type="button"><Icon name="scan" />{ar ? 'تحليل جديد' : 'New analysis'}</button>
           <button className="button button-primary" onClick={() => navigate('/projects')} type="button">{ar ? 'العودة للمشاريع' : 'Back to projects'}<Icon name="arrow" /></button>
         </div>

@@ -24,6 +24,7 @@ from app.relationship_model import build_relationship_model
 from app.security_semantics import (
     classify_security_semantics,
 )
+from app.security_packs.registry import pack_coverage
 from app.verification_planner import build_verification_plans
 from flask import current_app, has_app_context
 
@@ -97,6 +98,7 @@ def analyze_source_file(
     )
     findings = build_finding_candidates(
         artifact=artifact,
+        parsed=parsed,
         intra_function_flow=data_flow,
         inter_function_flow=inter_function_data_flow,
     )
@@ -147,6 +149,7 @@ def analyze_source_file(
         "inter_function_data_flow": inter_function_data_flow,
         "application_model": application_model,
         "security_analysis": findings,
+        "security_packs": pack_coverage(),
         "hybrid_security": hybrid_security,
         "exploitability_verification": verification,
         "pipeline": pipeline,

@@ -151,3 +151,11 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 - Verification: 162 backend tests and frontend build pass. An exact-version live OSV lookup returned IDs; this does not prove exploitability.
 - SMTP reality check: the local Hostinger mailbox credential and the newly supplied credential both returned SMTP authentication error 535. `backend/.env` is ignored; no password is tracked. OTP delivery is still blocked pending a valid mailbox credential.
 - Hostinger account shows Business Web Hosting and an unconfigured VPS offer; `raqib.alaseeltech.com` remains the default page. Hostinger documents Flask/Python as VPS-only. See `HOSTINGER_DEPLOYMENT.md`; do not publish a standalone UI as though it were the working service.
+
+## 2026-09-28 focused-scope continuation
+
+- Read only the final five messages in the selected "تذكّر مشروع ستيب ون" chat. Their project decisions are distilled into `docs/FOCUSED_SCOPE.md`; the private transcript and unrelated chats are not published.
+- First meaningful SQL pack in `backend/app/security_packs/sql_injection.py`: distinguishes observed input in query text from input only in later bound-parameter arguments. A safe bound-parameter path is retained as a non-candidate, not mislabeled SQL injection. Ambiguous `.execute` without SQL-shape evidence is unresolved.
+- Four evaluation cases in `evaluation/cases/sql_injection.json` cover unsafe, bound safe, unrelated method, and one-boundary safe data flow. This is an evaluation dataset, not model training.
+- Replaced the mock report page with a report derived from an HMAC-verified, owner-scoped saved analysis. Three layers are executive, technical, and explicitly unavailable closure evidence. The result page now shows non-candidate reasons and stage statuses. JSON report export does not contain uploaded source code.
+- Verified baseline: 166 backend tests, 2 frontend report tests, and production build pass. Run `npm test` in the frontend; CI now includes it.

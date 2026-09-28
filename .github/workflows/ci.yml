@@ -33,5 +33,7 @@ jobs:
           cache-dependency-path: step-one-secure-code-ai-agent-frontend-professional/package-lock.json
       - run: npm ci
         working-directory: step-one-secure-code-ai-agent-frontend-professional
+      - run: npm test
+        working-directory: step-one-secure-code-ai-agent-frontend-professional
       - run: npm run build
         working-directory: step-one-secure-code-ai-agent-frontend-professional

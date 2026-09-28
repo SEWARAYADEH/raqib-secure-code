@@ -12,6 +12,7 @@ from app.archive_intake import (
 from app.intake import SourceFileValidationError
 from app.dependency_advisories import check_dependency_advisories
 from app.hybrid_security import correlate_project_evidence
+from app.security_packs.registry import pack_coverage
 from app.project_understanding import build_project_understanding
 from app.workspace import AnalysisWorkspace
 
@@ -78,6 +79,7 @@ def analyze_source_archive(
         },
         "files": file_results,
         "project_understanding": project_understanding,
+        "security_packs": pack_coverage(),
         "counts": {
             "analyzed_files": len(file_results),
             "intra_function_paths": sum(

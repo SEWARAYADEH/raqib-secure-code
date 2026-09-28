@@ -1,0 +1,37 @@
+[
+  {
+    "id": "sql_dynamic_concatenation",
+    "language_file": "example.py",
+    "source": "from flask import request\ndef get_user(cursor):\n    user_id = request.args.get('id')\n    query = 'SELECT * FROM users WHERE id = ' + user_id\n    cursor.execute(query)\n",
+    "expected_candidates": 1,
+    "expected_non_candidate_paths": 0
+  },
+  {
+    "id": "sql_bound_parameter",
+    "language_file": "example.py",
+    "source": "from flask import request\ndef get_user(cursor):\n    user_id = request.args.get('id')\n    cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))\n",
+    "expected_candidates": 0,
+    "expected_non_candidate_paths": 1
+  },
+  {
+    "id": "unrelated_execute_method",
+    "language_file": "example.py",
+    "source": "from flask import request\ndef run(task):\n    task.execute(request.args.get('command'))\n",
+    "expected_candidates": 0,
+    "expected_non_candidate_paths": 1
+  },
+  {
+    "id": "unrelated_execute_with_sql_named_variable",
+    "language_file": "example.py",
+    "source": "from flask import request\ndef run(task):\n    select = request.args.get('command')\n    task.execute(select)\n",
+    "expected_candidates": 0,
+    "expected_non_candidate_paths": 1
+  },
+  {
+    "id": "sql_bound_parameter_across_function",
+    "language_file": "example.py",
+    "source": "from flask import request\ndef lookup(cursor, user_id):\n    cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))\ndef handler(cursor):\n    user_id = request.args.get('id')\n    lookup(cursor, user_id)\n",
+    "expected_candidates": 0,
+    "expected_non_candidate_paths": 1
+  }
+]
