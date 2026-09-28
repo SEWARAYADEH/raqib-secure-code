@@ -17,11 +17,11 @@ export default function SecurityTrustPage() {
         ],
         [
           'التحقق',
-          'النتيجة الحالية Observation أو Evidence Path فقط. لا توجد حالة Verified Remediated حتى تُنفذ مراحل Test وReplay وRe-Scan وRe-Trace.',
+          'النتائج الحالية ملاحظات أو مرشحات مدعومة بمسارات ساكنة، وليست ثغرات مؤكدة. لا توجد حالة إغلاق مثبت حتى تُنفذ مراحل Test وReplay وRe-Scan وRe-Trace مع حفظ الدليل.',
         ],
         [
           'تحكم المطور',
-          'يبقى الملف والدالة والسطر والسبب الجذري والـdiff ظاهرًا للمطور قبل تنزيل النسخة المعدّلة.',
+          'يمكن مراجعة الملف والدالة والسطر ومسار الدليل في النتيجة المحفوظة. عرض السبب الجذري والـdiff وتنزيل النسخة المعدّلة مؤجل إلى حين وجود إصلاح متحقق منه.',
         ],
       ]
     : [
@@ -35,11 +35,11 @@ export default function SecurityTrustPage() {
         ],
         [
           'Verification',
-          'Current results are observations or evidence paths only. Verified Remediated is unavailable until Test, Replay, Re-Scan, and Re-Trace are implemented.',
+          'Current results are observations or candidates supported by static traces, not confirmed vulnerabilities. Verified closure is unavailable until Test, Replay, Re-Scan, and Re-Trace produce preserved evidence.',
         ],
         [
           'Developer control',
-          'Developers can inspect file, function, line, root cause, and code diff before downloading the updated artifact.',
+          'Developers can inspect the file, function, line, and evidence path in a saved result. Root cause, code diff, and updated-artifact download await a verified repair.',
         ],
       ];
 
@@ -74,8 +74,8 @@ export default function SecurityTrustPage() {
           <span className="eyebrow">CURRENT BOUNDARY</span>
           <p>
             {ar
-              ? 'المتوفر الآن: تحليل ساكن متعدد اللغات لبايثون وجافاسكربت، تتبع داخل الدالة وبين دالتين محليتين، ZIP آمن، وعقد API. غير المتوفر: إثبات استغلال، إصلاح آلي، بريد وTOTP وSession Server وAI API.'
-              : 'Available now: Python and JavaScript static analysis, intra-function and one-boundary local tracing, secure ZIP intake, and a versioned API. Not available: exploit proof, automated remediation, email, TOTP, session server, or AI API.'}
+              ? 'المتوفر الآن: تحليل ساكن لبايثون وجافاسكربت ضمن نطاقات محددة، استقبال ZIP آمن، API، جلسات موقعة، ومسار إرسال رمز بريد قصير العمر. إرسال الرمز الحقيقي متعطل حتى تصح إعدادات SMTP. غير المتوفر: إثبات استغلال، إصلاح آلي، Replay، تنزيل نسخة معدّلة، وTOTP فعلي. مساعد AI اختياري وغير مفعل افتراضيًا.'
+              : 'Available now: bounded Python and JavaScript static analysis, secure ZIP intake, an API, signed sessions, and short-lived email-code routes. Real code delivery is blocked until SMTP is configured correctly. Unavailable: exploit proof, automated repair, replay, updated-artifact download, and working TOTP. The AI advisor is optional and disabled by default.'}
           </p>
         </section>
       </main>
