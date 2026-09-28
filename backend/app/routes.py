@@ -133,6 +133,9 @@ def configuration_status():
             "enabled": bool(config["ANALYSIS_STORE_ENABLED"]),
             "integrity": "HMAC-SHA256" if config["ANALYSIS_STORE_ENABLED"]
             else "NOT_ENABLED",
+            "analysis_records": "OWNER_SCOPED_APPEND_ONLY",
+            "uploaded_source_retention": "TEMPORARY_WORKSPACE_ONLY",
+            "original_overwritten": False,
         },
         "email": {
             "enabled": bool(config["EMAIL_VERIFICATION_ENABLED"]),
