@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { getStoredAnalysis } from '../api/endpoints';
+import { getStoredAnalysis, requestFindingAdvice } from '../api/endpoints';
 import AppShell from '../components/AppShell';
 import AsyncState from '../components/AsyncState';
 import Icon from '../components/Icon';
@@ -39,7 +39,73 @@ function summarizeFile(result, ar) {
   };
 }
 
-function AnalysisFileCard({ file, ar }) {
+function FindingAdvisor({ analysisId, finding, ar }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+
+  const requestAdvice = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await requestFindingAdvice(analysisId, finding.id);
+      setResult(response.result);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : (ar ? 'تعذر تشغيل المساعد.' : 'Unable to run the advisor.'),
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const advice = result?.advice;
+
+  return (
+    <div className="advisor-panel">
+      <div className="analysis-path-title">
+        <StatusBadge tone="info">ADVISORY ONLY</StatusBadge>
+        <strong>{ar ? 'مساعد الإصلاح بالذكاء الاصطناعي' : 'AI remediation advisor'}</strong>
+      </div>
+      <p>
+        {ar
+          ? 'يرسل رقيب الحد الأدنى من الأدلة المنظمة فقط. المساعد لا يثبت قابلية الاستغلال ولا يملك صلاحية إغلاق النتيجة.'
+          : 'Raqeeb sends only minimum necessary structured evidence. The advisor cannot verify exploitability or close a finding.'}
+      </p>
+      {!advice ? (
+        <button className="button button-secondary" disabled={loading} onClick={requestAdvice} type="button">
+          <Icon name="robot" />
+          {loading ? (ar ? 'تحليل الأدلة…' : 'Reviewing evidence…') : (ar ? 'طلب رأي AI' : 'Request AI advice')}
+        </button>
+      ) : null}
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+      {advice ? (
+        <div className="advisor-result">
+          <div>
+            <span>{ar ? 'فرضيات السبب الجذري' : 'Root-cause hypotheses'}</span>
+            <ul>{advice.root_cause_hypotheses.map((item) => <li key={item}>{item}</li>)}</ul>
+          </div>
+          <div>
+            <span>{ar ? 'استراتيجية الإصلاح' : 'Patch strategy'}</span>
+            <p>{advice.patch_strategy}</p>
+          </div>
+          <div>
+            <span>{ar ? 'اختبارات مقترحة' : 'Suggested tests'}</span>
+            <ul>{advice.test_suggestions.map((item) => <li key={item}>{item}</li>)}</ul>
+          </div>
+          <div>
+            <span>{ar ? 'نقاط غير محسومة' : 'Uncertainties'}</span>
+            <ul>{advice.uncertainties.map((item) => <li key={item}>{item}</li>)}</ul>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AnalysisFileCard({ file, ar, advisorAnalysisId }) {
   return (
     <article className="analysis-result-card">
       <div className="analysis-result-head">
@@ -96,6 +162,13 @@ function AnalysisFileCard({ file, ar }) {
               <p>{ar
                 ? `التحقق: ${plan?.execution_status ?? 'NOT_RUN'} · العائق: ${plan?.blockers?.join(', ') || 'NONE'}`
                 : `Verification: ${plan?.execution_status ?? 'NOT_RUN'} · Blocker: ${plan?.blockers?.join(', ') || 'NONE'}`}</p>
+              {advisorAnalysisId ? (
+                <FindingAdvisor
+                  analysisId={advisorAnalysisId}
+                  ar={ar}
+                  finding={finding}
+                />
+              ) : null}
             </div>
           );
         }) : <p className="analysis-empty">{ar ? 'لا توجد مرشحات نتائج مبنية على مسار مثبت.' : 'No finding candidates were produced from an established path.'}</p>}
@@ -229,6 +302,11 @@ export default function AnalysisProgressPage() {
   const files = (payload.result.files ?? [payload.result]).map((item) => summarizeFile(item, ar));
   const totalPaths = files.reduce((sum, file) => sum + file.paths.length, 0);
   const persisted = payload.record?.persisted === true;
+  const advisorAnalysisId = (
+    persisted && !Array.isArray(payload.result.files)
+      ? payload.record?.analysis_id
+      : null
+  );
 
   return (
     <AppShell>
@@ -244,7 +322,14 @@ export default function AnalysisProgressPage() {
           <div><span>{ar ? 'الحفظ' : 'Persistence'}</span><strong>{persisted ? 'HMAC-SHA256' : (ar ? 'غير مفعّل محليًا' : 'Local persistence disabled')}</strong></div>
         </div>
         <ProjectSummary ar={ar} project={payload.result.project_understanding} />
-        <div className="analysis-result-list">{files.map((file) => <AnalysisFileCard ar={ar} file={file} key={file.name} />)}</div>
+        <div className="analysis-result-list">{files.map((file) => (
+          <AnalysisFileCard
+            advisorAnalysisId={advisorAnalysisId}
+            ar={ar}
+            file={file}
+            key={file.name}
+          />
+        ))}</div>
         <div className="progress-actions">
           <button className="button button-ghost" onClick={() => navigate('/analysis/new')} type="button"><Icon name="scan" />{ar ? 'تحليل جديد' : 'New analysis'}</button>
           <button className="button button-primary" onClick={() => navigate('/projects')} type="button">{ar ? 'العودة للمشاريع' : 'Back to projects'}<Icon name="arrow" /></button>
