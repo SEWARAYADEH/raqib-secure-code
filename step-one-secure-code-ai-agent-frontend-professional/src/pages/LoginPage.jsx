@@ -40,7 +40,7 @@ export default function LoginPage() {
     } catch (requestError) {
       setError(
         requestError.code === 'EMAIL_DELIVERY_UNAVAILABLE'
-          ? (ar ? 'إرسال البريد غير مهيأ بعد. يلزم ضبط بيانات SMTP على الخادم.' : 'Email delivery is not configured. Set the server SMTP credentials.')
+          ? (ar ? 'تعذّر إرسال رمز التحقق عبر خادم البريد. تحقّق من إعدادات SMTP واعتماد صندوق البريد.' : 'The mail server could not send the verification code. Check SMTP settings and mailbox credentials.')
           : requestError.code === 'UNTRUSTED_REQUEST_ORIGIN'
             ? (ar ? 'عنوان الموقع غير مسموح به في إعدادات الخادم.' : 'This site origin is not allowed by the server.')
             : requestError.code === 'CHALLENGE_REJECTED'

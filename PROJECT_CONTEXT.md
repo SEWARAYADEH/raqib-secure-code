@@ -166,7 +166,6 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 - Renamed the deterministic case dataset from `evaluation/` to `training/` to match the requested vocabulary. `training/README.md` explains that no model is being trained.
 - Retain the current flat backend modules and established frontend directory until each domain move has focused tests. Do not create empty security pack, scenario, verification, or remediation implementations.
 
-
 ## 2026-09-28 focused workflow and product-clarity continuation
 
 - Added a real `GET /api/v1/analysis/options` contract so the upload screen reads supported scopes, size limits, safety rules, and the five focused security-pack states from the backend instead of mock analysis options.
@@ -179,3 +178,8 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 - Added `docs/REPOSITORY_MAP.md`, `docs/WORKFLOW_AND_STORAGE.md`, and `docs/REPORTING_MODEL.md` while retaining `docs/PROJECT_STRUCTURE.md`; the target tree and current implementation are kept distinct.
 - Expanded `training/README.md` so vulnerable, safe, ambiguous, fixed, and regression cases are clearly separated from ML model training.
 - No password or private chat transcript is stored in Git. Any credential previously typed into chat must be treated as exposed and replaced before production use.
+
+## 2026-09-29 SMTP diagnosis
+
+- Hostinger SMTP host/port/SSL, username, sender, and allowlisted recipient are present in the ignored local `backend/.env`. A login-only SMTP check still returns `535` (authentication refused), so the current blocker is the mailbox credential, not a missing hostname or IMAP setting. No test email or OTP was sent by this check.
+- The frontend's `EMAIL_DELIVERY_UNAVAILABLE` text now describes failed delivery rather than falsely asserting missing configuration. The tracked environment example and default SMTP host match Hostinger; no secret was added to Git.

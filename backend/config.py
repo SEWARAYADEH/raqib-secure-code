@@ -48,7 +48,7 @@ class Config:
         "VERIFICATION_ALLOWED_EMAILS",
         "",
     )
-    SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_HOST = os.getenv("SMTP_HOST", "smtp.hostinger.com")
     SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
     SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "true").lower() == "true"
     SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")

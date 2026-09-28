@@ -59,7 +59,7 @@ def create_email_challenge():
         return api_error(
             status_code=503,
             code="EMAIL_DELIVERY_UNAVAILABLE",
-            message="Verification email delivery is not configured or is unavailable.",
+            message="Verification email delivery is unavailable.",
         )
 
     return (
