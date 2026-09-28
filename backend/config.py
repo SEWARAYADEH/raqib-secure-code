@@ -58,6 +58,10 @@ class Config:
         "ISOLATION_RUNTIME_AVAILABLE",
         "false",
     ).lower() == "true"
+    OSV_ADVISORY_LOOKUP_ENABLED = os.getenv(
+        "OSV_ADVISORY_LOOKUP_ENABLED",
+        "false",
+    ).lower() == "true"
     CODEX_ADVISOR_ENABLED = os.getenv(
         "CODEX_ADVISOR_ENABLED",
         "false",

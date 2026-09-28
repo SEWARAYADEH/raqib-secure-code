@@ -6,6 +6,7 @@ from app.control_flow import build_control_flow_model
 from app.codex_advisor import AdvisorConfig, advisor_status
 from app.data_flow import build_intra_function_data_flow
 from app.framework_intelligence import understand_frameworks
+from app.hybrid_security import correlate_file_evidence
 from app.finding_model import build_finding_candidates
 from app.intake import inspect_source_file
 from app.language_detection import detect_language
@@ -99,6 +100,11 @@ def analyze_source_file(
         intra_function_flow=data_flow,
         inter_function_flow=inter_function_data_flow,
     )
+    hybrid_security = correlate_file_evidence(
+        semantics=semantics,
+        understanding=understanding,
+        findings=findings,
+    )
     verification = build_verification_plans(
         findings,
         isolation_runtime_available=(
@@ -141,6 +147,7 @@ def analyze_source_file(
         "inter_function_data_flow": inter_function_data_flow,
         "application_model": application_model,
         "security_analysis": findings,
+        "hybrid_security": hybrid_security,
         "exploitability_verification": verification,
         "pipeline": pipeline,
         "codex_advisor": advisor,

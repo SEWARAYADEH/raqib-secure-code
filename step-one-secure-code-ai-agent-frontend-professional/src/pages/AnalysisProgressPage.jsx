@@ -89,6 +89,10 @@ function AnalysisFileCard({ file, ar }) {
               <p>{ar
                 ? `الوصول الساكن: ${finding.reachability.static_path} · قابلية الاستغلال: ${finding.exploitability.status}`
                 : `Static reachability: ${finding.reachability.static_path} · Exploitability: ${finding.exploitability.status}`}</p>
+              <p>{ar ? 'ربط معايير مرشح: ' : 'Candidate standards mapping: '}
+                <code dir="ltr">{finding.standards.cwe} · {finding.standards.owasp}</code>
+                {' · '}{finding.standards.status}
+              </p>
               <p>{ar
                 ? `التحقق: ${plan?.execution_status ?? 'NOT_RUN'} · العائق: ${plan?.blockers?.join(', ') || 'NONE'}`
                 : `Verification: ${plan?.execution_status ?? 'NOT_RUN'} · Blocker: ${plan?.blockers?.join(', ') || 'NONE'}`}</p>
@@ -105,6 +109,9 @@ function ProjectSummary({ project, ar }) {
   const counts = project.counts ?? {};
   const calls = project.cross_file_calls ?? [];
   const shownCalls = calls.slice(0, 8);
+  const advisories = project.dependency_advisories ?? {};
+  const advisoryMatches = advisories.advisory_matches ?? [];
+  const hybrid = project.hybrid_security ?? {};
   return (
     <section className="analysis-result-card" aria-label={ar ? 'فهم المشروع' : 'Project understanding'}>
       <div className="analysis-result-head">
@@ -129,7 +136,25 @@ function ProjectSummary({ project, ar }) {
         {project.manifests?.length ? (
           <p>{project.manifests.map((item) => `${item.relative_path} (${item.status})`).join(' · ')}</p>
         ) : <p className="analysis-empty">{ar ? 'لا توجد ملفات اعتماديات مدعومة ضمن الأرشيف.' : 'No supported dependency manifest was found in the archive.'}</p>}
-        <p>{ar ? 'تم استخراج التصريحات فقط. لم يُنفذ فحص SCA لثغرات الحزم.' : 'Declarations only. Package vulnerability analysis (SCA) has not run.'}</p>
+        <p>{ar ? 'فحص التنبيهات OSV: ' : 'OSV advisory lookup: '}<strong>{advisories.status ?? 'NOT_RUN'}</strong>
+          {' · '}{ar ? 'إصدارات دقيقة فُحصت: ' : 'Exact versions queried: '}{advisories.counts?.exact_versions_queried ?? 0}
+          {' · '}{ar ? 'تصريحات لم تُفحص: ' : 'Declarations not queried: '}{advisories.counts?.declarations_skipped ?? counts.dependency_declarations ?? 0}
+        </p>
+        {advisoryMatches.slice(0, 10).map((item) => (
+          <p key={`${item.manifest}:${item.name}:${item.advisory_id}`}>
+            <code dir="ltr">{item.name}@{item.version} · {item.advisory_id}</code>
+            {' · '}{ar ? 'تطابق تنبيه؛ الإصدار المثبت وقابلية الوصول غير مثبتين' : 'Advisory match; installed version and reachability unverified'}
+          </p>
+        ))}
+        {advisoryMatches.length > 10 ? <p>{ar ? `يُعرض 10 من ${advisoryMatches.length}.` : `Showing 10 of ${advisoryMatches.length}.`}</p> : null}
+        <p>{ar ? 'لا يُرسل الكود إلى OSV؛ الفحص الاختياري يرسل اسم الحزمة وإصدارها المحدد فقط.' : 'Source code is not sent to OSV; the optional lookup sends only exact package names and versions.'}</p>
+      </div>
+      <div className="analysis-paths">
+        <h3>{ar ? 'ترابط الشواهد الأمنية' : 'Security evidence correlation'}</h3>
+        <p>{ar ? 'مرشحات كود: ' : 'Code candidates: '}{hybrid.counts?.code_candidates ?? 0}
+          {' · '}{ar ? 'تطابقات تنبيهات: ' : 'Advisory matches: '}{hybrid.counts?.dependency_advisory_matches ?? 0}
+          {' · '}{ar ? 'ثغرات مثبتة: ' : 'Verified vulnerabilities: '}{hybrid.counts?.verified_vulnerabilities ?? 0}</p>
+        <p>{ar ? 'مصادر الأدلة منفصلة؛ تطابق التنبيه وربط CWE/OWASP المرشح لا يثبتان ثغرة أو قابلية استغلال.' : 'Evidence sources remain separate; an advisory match or candidate CWE/OWASP mapping does not prove a vulnerability or exploitability.'}</p>
       </div>
       <div className="analysis-paths">
         <h3>{ar ? 'الأطر المرصودة' : 'Observed frameworks'}</h3>

@@ -2,7 +2,6 @@ import { apiRequest, mockRequest } from './client';
 import {
   mockAnalysisOptions,
   mockAnalysisProgress,
-  mockConfiguration,
   mockFindings,
   mockLiveOperation,
   mockReport,
@@ -82,4 +81,4 @@ export const getWorkbench = () => {
 };
 
 export const getReport = () => mockRequest(mockReport);
-export const getConfiguration = () => mockRequest(mockConfiguration);
+export const getConfigurationStatus = () => apiRequest('/api/v1/configuration/status');

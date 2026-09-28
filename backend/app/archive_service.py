@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from flask import current_app, has_app_context
+
 from app.analysis_service import AnalysisValidationError, analyze_source_file
 from app.archive_intake import (
     SourceArchiveValidationError,
     extract_source_archive,
 )
 from app.intake import SourceFileValidationError
+from app.dependency_advisories import check_dependency_advisories
+from app.hybrid_security import correlate_project_evidence
 from app.project_understanding import build_project_understanding
 from app.workspace import AnalysisWorkspace
 
@@ -47,6 +51,16 @@ def analyze_source_archive(
 
     project_understanding = build_project_understanding(
         file_results, archive["manifests"]
+    )
+    project_understanding["dependency_advisories"] = (
+        check_dependency_advisories(
+            project_understanding["dependency_declarations"],
+            enabled=bool(current_app.config["OSV_ADVISORY_LOOKUP_ENABLED"])
+            if has_app_context() else False,
+        )
+    )
+    project_understanding["hybrid_security"] = correlate_project_evidence(
+        file_results, project_understanding["dependency_advisories"]
     )
 
     return {

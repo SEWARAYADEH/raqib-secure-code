@@ -45,6 +45,58 @@ def health_check():
     )
 
 
+@api.get("/v1/configuration/status")
+def configuration_status():
+    principal = resolve_analysis_principal()
+    if principal is None:
+        return api_error(
+            status_code=401,
+            code="ANALYSIS_ACCESS_DENIED",
+            message="Configuration status is not authorized.",
+        )
+    if not principal.permits(SCOPE_ANALYSIS_READ):
+        return api_error(
+            status_code=403,
+            code="ANALYSIS_SCOPE_FORBIDDEN",
+            message="The principal cannot read configuration status.",
+        )
+    config = current_app.config
+    return jsonify({
+        "ai": {
+            "provider": "OpenAI Responses API",
+            "enabled": bool(config["CODEX_ADVISOR_ENABLED"]),
+            "key_configured": bool(config["OPENAI_API_KEY"]),
+            "model_configured": bool(config["OPENAI_MODEL"]),
+            "model": config["OPENAI_MODEL"] or None,
+            "context_limit_characters": config["CODEX_CONTEXT_MAX_CHARACTERS"],
+            "decision_authority": "ADVISORY_ONLY",
+        },
+        "analysis": {
+            "supported_languages": ["Python", "JavaScript", "JavaScript JSX"],
+            "osv_advisory_lookup_enabled": bool(
+                config["OSV_ADVISORY_LOOKUP_ENABLED"]
+            ),
+            "uploaded_code_execution": False,
+            "isolation_runtime_available": bool(
+                config["ISOLATION_RUNTIME_AVAILABLE"]
+            ),
+        },
+        "storage": {
+            "enabled": bool(config["ANALYSIS_STORE_ENABLED"]),
+            "integrity": "HMAC-SHA256" if config["ANALYSIS_STORE_ENABLED"]
+            else "NOT_ENABLED",
+        },
+        "email": {
+            "enabled": bool(config["EMAIL_VERIFICATION_ENABLED"]),
+            "credentials_present": bool(
+                config["SMTP_HOST"] and config["SMTP_USERNAME"]
+                and config["SMTP_PASSWORD"] and config["SMTP_SENDER"]
+            ),
+            "delivery_verified": False,
+        },
+    })
+
+
 @api.post("/v1/analysis/source")
 def analyze_source():
     principal = resolve_analysis_principal()

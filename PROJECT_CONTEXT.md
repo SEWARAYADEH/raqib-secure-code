@@ -142,3 +142,12 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 - No vulnerability declaration, CWE/severity assignment, or verified-closed state.
 - No job queue, sandbox runtime, external SAST/SCA sensor, or enabled AI call yet.
 - No patch or updated download is exposed before verified exploitability and closure evidence.
+
+## 2026-09-28 continuation: goals 8–9 and deployment gate
+
+- Added bounded, opt-in OSV lookups for exact declared PyPI/npm versions; lookup results remain advisory matches with unverified installed version and reachability. Source code and manifest bodies are not sent. Default `OSV_ADVISORY_LOOKUP_ENABLED=false`.
+- Added per-file and project-level hybrid evidence contracts that keep semantic rules, static traces, application context, code candidates, and dependency advisories separate. Candidate CWE/OWASP mapping is shown without vulnerability or severity claims. External SAST is still not integrated.
+- Replaced the mock configuration screen with an authenticated API status view. It gives an explicit server-side location for `OPENAI_API_KEY`/`OPENAI_MODEL`, never accepts or echoes key values, and displays actual persistence and sensor states.
+- Verification: 162 backend tests and frontend build pass. An exact-version live OSV lookup returned IDs; this does not prove exploitability.
+- SMTP reality check: the local Hostinger mailbox credential and the newly supplied credential both returned SMTP authentication error 535. `backend/.env` is ignored; no password is tracked. OTP delivery is still blocked pending a valid mailbox credential.
+- Hostinger account shows Business Web Hosting and an unconfigured VPS offer; `raqib.alaseeltech.com` remains the default page. Hostinger documents Flask/Python as VPS-only. See `HOSTINGER_DEPLOYMENT.md`; do not publish a standalone UI as though it were the working service.

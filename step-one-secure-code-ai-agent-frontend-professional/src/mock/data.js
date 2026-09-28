@@ -379,22 +379,6 @@ export const mockReport = {
   findings: mockFindings,
 };
 
-export const mockConfiguration = {
-  aiProvider: 'Backend-managed provider',
-  aiModel: 'BACKEND_CONTRACT_REQUIRED',
-  aiRoles: [
-    'Code explanation',
-    'Finding correlation',
-    'Root-cause reasoning',
-    'Secure candidate generation',
-  ],
-  scanProfile: 'Deep',
-  scanProfiles: ['Quick', 'Standard', 'Deep'],
-  standardsPack: 'CWE + OWASP Top 10 + ASVS',
-  note: 'API keys and model credentials must be stored by the backend, never in React.',
-  connectionState: 'Not connected in frontend-only build',
-};
-
 export const mockAnalysisProgress = {
   projectName: 'Customer Portal',
   sourceLabel: 'customer-portal.zip',
