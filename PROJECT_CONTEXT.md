@@ -159,3 +159,16 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 - Four evaluation cases in `evaluation/cases/sql_injection.json` cover unsafe, bound safe, unrelated method, and one-boundary safe data flow. This is an evaluation dataset, not model training.
 - Replaced the mock report page with a report derived from an HMAC-verified, owner-scoped saved analysis. Three layers are executive, technical, and explicitly unavailable closure evidence. The result page now shows non-candidate reasons and stage statuses. JSON report export does not contain uploaded source code.
 - Verified baseline: 166 backend tests, 2 frontend report tests, and production build pass. Run `npm test` in the frontend; CI now includes it.
+
+
+## 2026-09-28 focused workflow and product-clarity continuation
+
+- Added a real `GET /api/v1/analysis/options` contract so the upload screen reads supported scopes, limits, safety rules, and the five focused security-pack states from the backend instead of mock analysis options.
+- Expanded security-pack metadata with explicit implementation order, understanding focus, and truthful exploitability/patch/closure capabilities.
+- Upload UI now shows the actual safety contract, original-file preservation, evidence-gated claim policy, and current state of all five focused packs before analysis starts.
+- Arabic/English preference is persisted locally; no security material is stored with it.
+- Removed misleading demo identity/status text from the authenticated workspace shell.
+- Configuration now exposes storage responsibility: owner-scoped append-only records, HMAC integrity, temporary uploaded-source workspaces, and no overwrite of originals.
+- Hostinger SMTP host/port are documented in `backend/.env.example` without any mailbox password or secret value.
+- Added `docs/REPOSITORY_MAP.md`, `docs/WORKFLOW_AND_STORAGE.md`, and `docs/REPORTING_MODEL.md` so implementation, evaluation/training terminology, storage, reports, and closure states are explicit.
+- No password or private chat transcript is stored in Git. Any credential previously typed into chat must be treated as exposed and replaced before production use.
