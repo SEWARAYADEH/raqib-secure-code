@@ -40,6 +40,17 @@ export function getStoredAnalysis(analysisId) {
   return apiRequest(`/api/v1/analyses/${encodeURIComponent(analysisId)}`);
 }
 
+export function requestFindingAdvice(analysisId, findingId) {
+  return apiRequest(
+    `/api/v1/analyses/${encodeURIComponent(analysisId)}/advisor`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ finding_id: findingId }),
+      headers: { 'Content-Type': 'application/json' },
+    },
+  );
+}
+
 export function requestEmailChallenge(email) {
   return apiRequest('/api/v1/auth/email-challenges', {
     method: 'POST',
