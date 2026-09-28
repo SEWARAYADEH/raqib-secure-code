@@ -70,6 +70,8 @@ export default function ConfigurationPage() {
               <StateLine ar={ar} enabled={data.email.credentials_present} label={ar ? 'بيانات SMTP موجودة، التسليم غير مثبت' : 'SMTP credentials present; delivery unverified'} />
               <StateLine ar={ar} enabled={data.analysis.osv_advisory_lookup_enabled} label={ar ? 'فحص تنبيهات الاعتماديات OSV' : 'OSV dependency advisory lookup'} />
               <p>{ar ? 'سلامة السجلات: ' : 'Record integrity: '}{data.storage.integrity} · {ar ? 'تشغيل الكود المرفوع: ممنوع' : 'Uploaded code execution: disabled'}</p>
+              <p>{ar ? 'السجلات: ' : 'Records: '}{data.storage.analysis_records} · {ar ? 'الملفات المرفوعة: ' : 'Uploaded source: '}{data.storage.uploaded_source_retention}</p>
+              <p>{ar ? 'الكتابة فوق الأصل: ' : 'Original overwrite: '}{data.storage.original_overwritten ? 'ENABLED' : 'DISABLED'}</p>
               <p>{ar ? 'اللغات المدعومة فعليًا: ' : 'Actually supported languages: '}{data.analysis.supported_languages.join(' · ')}</p>
             </section>
           </>
