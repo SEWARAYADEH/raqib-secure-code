@@ -24,6 +24,9 @@ def test_sql_pack_evaluation_case(case):
         case["expected_non_candidate_paths"]
     )
     assert analysis["counts"]["verified_vulnerabilities"] == 0
-    assert result["security_packs"][0] == {
-        "id": "SQL_INJECTION", "status": "PARTIAL_STATIC_CANDIDATES"
-    }
+    sql_pack = result["security_packs"][0]
+    assert sql_pack["id"] == "SQL_INJECTION"
+    assert sql_pack["status"] == "PARTIAL_STATIC_CANDIDATES"
+    assert sql_pack["can_verify_exploitability"] is False
+    assert sql_pack["can_generate_verified_patch"] is False
+    assert sql_pack["can_close"] is False

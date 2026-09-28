@@ -201,3 +201,32 @@ def test_production_requires_immutable_storage():
                 "ANALYSIS_STORE_ENABLED": False,
             }
         )
+
+
+def test_analysis_options_are_real_and_safety_bounded(client):
+    response = client.get("/api/v1/analysis/options")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+
+    scopes = {item["id"]: item for item in payload["scopes"]}
+    assert scopes["file"]["max_bytes"] == 2 * 1024 * 1024
+    assert scopes["project"]["max_bytes"] == 20 * 1024 * 1024
+    assert scopes["project"]["accept"] == ".zip"
+
+    packs = {item["id"]: item for item in payload["security_packs"]}
+    assert list(packs) == [
+        "SQL_INJECTION",
+        "COMMAND_INJECTION",
+        "PATH_TRAVERSAL",
+        "XSS",
+        "BROKEN_AUTHORIZATION_IDOR",
+    ]
+    assert packs["SQL_INJECTION"]["status"] == "PARTIAL_STATIC_CANDIDATES"
+    assert packs["PATH_TRAVERSAL"]["status"] == "NOT_IMPLEMENTED"
+
+    safety = payload["safety"]
+    assert safety["uploaded_code_execution"] is False
+    assert safety["original_overwritten"] is False
+    assert safety["archive_nested_archives_allowed"] is False
+    assert safety["analysis_claim_policy"] == "EVIDENCE_GATED"

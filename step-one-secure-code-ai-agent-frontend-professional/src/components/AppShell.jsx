@@ -92,8 +92,8 @@ export default function AppShell({ children }) {
           <button className="account-summary" onClick={() => { navigate('/account'); closeMobile(); }} type="button">
             <span className="account-avatar">DE</span>
             <span>
-              <strong>{user?.name ?? 'Demo Engineer'}</strong>
-              <small dir="ltr">{user?.email ?? 'engineer@example.com'}</small>
+              <strong>{user?.name ?? (ar ? 'مستخدم موثّق' : 'Verified user')}</strong>
+              <small dir="ltr">{user?.email ?? '—'}</small>
             </span>
           </button>
           <button className="signout-button" onClick={handleSignOut} type="button">
@@ -113,7 +113,7 @@ export default function AppShell({ children }) {
               <span className="topbar-dot" />
               <div>
                 <strong>{projectId ? (ar ? 'مساحة المشروع' : 'Project workspace') : 'SecClosure'}</strong>
-                <small>{ar ? 'محرك التحليل الساكن متصل · المصادقة ما زالت تجريبية' : 'Static analysis connected · authentication remains demo-only'}</small>
+                <small>{ar ? 'فهم التطبيق والتحليل الساكن متصلان · حالة كل مرحلة معروضة كما هي' : 'Application understanding and static analysis are live · every stage reports its real status'}</small>
               </div>
             </div>
           </div>
