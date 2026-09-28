@@ -156,6 +156,12 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 
 - Read only the final five messages in the selected "تذكّر مشروع ستيب ون" chat. Their project decisions are distilled into `docs/FOCUSED_SCOPE.md`; the private transcript and unrelated chats are not published.
 - First meaningful SQL pack in `backend/app/security_packs/sql_injection.py`: distinguishes observed input in query text from input only in later bound-parameter arguments. A safe bound-parameter path is retained as a non-candidate, not mislabeled SQL injection. Ambiguous `.execute` without SQL-shape evidence is unresolved.
-- Four evaluation cases in `evaluation/cases/sql_injection.json` cover unsafe, bound safe, unrelated method, and one-boundary safe data flow. This is an evaluation dataset, not model training.
+- Five evaluation cases in `training/cases/sql_injection.json` cover unsafe, bound safe, unrelated methods (including a misleading SQL-named variable), and one-boundary safe data flow. This is an evaluation dataset, not model training.
 - Replaced the mock report page with a report derived from an HMAC-verified, owner-scoped saved analysis. Three layers are executive, technical, and explicitly unavailable closure evidence. The result page now shows non-candidate reasons and stage statuses. JSON report export does not contain uploaded source code.
-- Verified baseline: 166 backend tests, 2 frontend report tests, and production build pass. Run `npm test` in the frontend; CI now includes it.
+- Verified baseline: 167 backend tests, 2 frontend report tests, and production build pass. Run `npm test` in the frontend; CI now includes it.
+
+## 2026-09-28 folder-structure clarification
+
+- The final chat's proposed folder tree is recorded in `docs/PROJECT_STRUCTURE.md` with an explicit current-to-target map and implementation status. A proposed file or folder is not represented as implemented.
+- Renamed the deterministic case dataset from `evaluation/` to `training/` to match the requested vocabulary. `training/README.md` explains that no model is being trained.
+- Retain the current flat backend modules and established frontend directory until each domain move has focused tests. Do not create empty security pack, scenario, verification, or remediation implementations.

@@ -8,7 +8,7 @@ from app.analysis_service import analyze_source_file
 
 CASES_PATH = (
     Path(__file__).resolve().parents[2]
-    / "evaluation" / "cases" / "sql_injection.json"
+    / "training" / "cases" / "sql_injection.json"
 )
 CASES = json.loads(CASES_PATH.read_text(encoding="utf-8"))
 

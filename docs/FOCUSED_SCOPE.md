@@ -12,7 +12,7 @@ Implementation order is technical progression, not severity ranking:
 4. **XSS:** input → transformations → HTML/JavaScript sink → context-appropriate encoding. Current status: planned; no pack implementation or claim.
 5. **IDOR/broken authorization:** route → actor → resource ID → ownership/role guard → resource access. Current status: planned; no pack implementation or claim.
 
-Packs are added only when their rules, counterexamples, and tests exist. Empty module directories are not created. `backend/app/security_packs/sql_injection.py` is the first implemented pack; `evaluation/cases/sql_injection.json` is a regression dataset, not machine-learning model training.
+Packs are added only when their rules, counterexamples, and tests exist. Empty module directories are not created. `backend/app/security_packs/sql_injection.py` is the first implemented pack; `training/cases/sql_injection.json` is a regression dataset, not machine-learning model training. The requested folder map and current-to-target mapping are in `docs/PROJECT_STRUCTURE.md`.
 
 ## User-visible workflow
 
