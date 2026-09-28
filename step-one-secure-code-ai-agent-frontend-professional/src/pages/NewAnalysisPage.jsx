@@ -40,7 +40,7 @@ export default function NewAnalysisPage() {
       return;
     }
 
-    const limit = scope === 'project' ? 20 * 1024 * 1024 : 2 * 1024 * 1024;
+    const limit = selectedScope?.max_bytes ?? (scope === 'project' ? 20 * 1024 * 1024 : 2 * 1024 * 1024);
     if (selectedFile.size === 0 || selectedFile.size > limit) {
       setFormError(ar
         ? `حجم الملف يجب أن يكون أكبر من صفر وأقل من ${bytesToLabel(limit)}.`
@@ -146,6 +146,38 @@ export default function NewAnalysisPage() {
                       : ar ? 'ملف ZIP للمشروع ضمن حدود الاستخراج الآمن.' : 'Project ZIP with secure extraction limits.'}
                 </small>
               </label>
+            </fieldset>
+
+            <fieldset className="form-section">
+              <legend>{ar ? '3. ما الذي سيفعله رقيب؟' : '3. What will Raqeeb do?'}</legend>
+              <div className="analysis-metrics">
+                <div><span>{ar ? 'المدخل' : 'Intake'}</span><strong>{ar ? 'فحص آمن' : 'Safe'}</strong></div>
+                <div><span>{ar ? 'التنفيذ' : 'Execution'}</span><strong>{options.safety.uploaded_code_execution ? 'ENABLED' : 'DISABLED'}</strong></div>
+                <div><span>{ar ? 'الأصل' : 'Original'}</span><strong>{options.safety.original_overwritten ? 'OVERWRITTEN' : 'PRESERVED'}</strong></div>
+                <div><span>{ar ? 'سياسة الادعاء' : 'Claim policy'}</span><strong>{options.safety.analysis_claim_policy}</strong></div>
+              </div>
+              <p>
+                {ar
+                  ? 'التسلسل: فهم البنية → تتبع البيانات → مرشح أمني → تحقق من القابلية للاستغلال عند توفر بيئة العزل → إصلاح أدنى → اختبار الوظيفة → إعادة الفحص والتتبع وإعادة السيناريو → دليل إغلاق.'
+                  : 'Flow: understand structure → trace data → security candidate → verify exploitability when isolation is available → minimal repair → functional tests → re-scan, re-trace and replay → closure evidence.'}
+              </p>
+            </fieldset>
+
+            <fieldset className="form-section">
+              <legend>{ar ? '4. الحزم الأمنية المركّزة' : '4. Focused security packs'}</legend>
+              <div className="analysis-metrics">
+                {options.security_packs.map((pack) => (
+                  <div key={pack.id}>
+                    <span>{pack.display_name}</span>
+                    <strong>{pack.status}</strong>
+                  </div>
+                ))}
+              </div>
+              <p>
+                {ar
+                  ? 'حالة الحزمة تعكس قدرة المحرك الحالية فقط. NOT_IMPLEMENTED لا يعني أن المشروع المرفوع آمن من هذه الثغرة.'
+                  : 'Pack status describes engine capability only. NOT_IMPLEMENTED never means the uploaded project is safe from that weakness.'}
+              </p>
             </fieldset>
 
             {formError ? <p className="form-error" role="alert">{formError}</p> : null}
