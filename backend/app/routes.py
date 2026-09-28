@@ -22,10 +22,15 @@ from app.auth import (
     SCOPE_ANALYSIS_READ,
     resolve_analysis_principal,
 )
+from app.archive_intake import (
+    MAX_ARCHIVE_BYTES,
+    SOURCE_EXTENSIONS,
+)
 from app.intake import (
     MAX_SOURCE_FILE_BYTES,
     SourceFileValidationError,
 )
+from app.security_packs.registry import pack_coverage
 
 
 api = Blueprint(
@@ -41,6 +46,49 @@ def health_check():
         {
             "status": "ok",
             "service": "step-one-backend",
+        }
+    )
+
+
+@api.get("/v1/analysis/options")
+def analysis_options():
+    return jsonify(
+        {
+            "scopes": [
+                {
+                    "id": "file",
+                    "label": "Code file",
+                    "accept": ".py,.js,.jsx",
+                    "max_bytes": MAX_SOURCE_FILE_BYTES,
+                },
+                {
+                    "id": "project",
+                    "label": "ZIP project",
+                    "accept": ".zip",
+                    "max_bytes": MAX_ARCHIVE_BYTES,
+                },
+            ],
+            "supported_languages": [
+                "Python",
+                "JavaScript",
+                "JavaScript JSX",
+            ],
+            "project_source_extensions": sorted(SOURCE_EXTENSIONS),
+            "security_packs": pack_coverage(),
+            "safety": {
+                "uploaded_code_execution": False,
+                "original_overwritten": False,
+                "archive_nested_archives_allowed": False,
+                "archive_symlinks_allowed": False,
+                "analysis_claim_policy": "EVIDENCE_GATED",
+                "closure_requires": [
+                    "FUNCTIONAL_TEST",
+                    "REPLAY",
+                    "RE_SCAN",
+                    "RE_TRACE",
+                    "CLOSURE_EVIDENCE",
+                ],
+            },
         }
     )
 
@@ -85,6 +133,9 @@ def configuration_status():
             "enabled": bool(config["ANALYSIS_STORE_ENABLED"]),
             "integrity": "HMAC-SHA256" if config["ANALYSIS_STORE_ENABLED"]
             else "NOT_ENABLED",
+            "analysis_records": "OWNER_SCOPED_APPEND_ONLY",
+            "uploaded_source_retention": "TEMPORARY_WORKSPACE_ONLY",
+            "original_overwritten": False,
         },
         "email": {
             "enabled": bool(config["EMAIL_VERIFICATION_ENABLED"]),
