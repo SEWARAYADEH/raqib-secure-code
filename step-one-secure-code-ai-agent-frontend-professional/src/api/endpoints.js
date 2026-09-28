@@ -1,6 +1,5 @@
 import { apiRequest, mockRequest } from './client';
 import {
-  mockAnalysisOptions,
   mockAnalysisProgress,
   mockFindings,
   mockLiveOperation,
@@ -17,7 +16,7 @@ export const getProjects = async () => {
   return response.analyses;
 };
 
-export const getAnalysisOptions = () => mockRequest(mockAnalysisOptions);
+export const getAnalysisOptions = () => apiRequest('/api/v1/analysis/options');
 export const getAnalysisProgress = () => mockRequest(mockAnalysisProgress);
 
 export function createAnalysis({ file, scope }) {
