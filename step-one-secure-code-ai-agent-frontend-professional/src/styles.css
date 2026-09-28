@@ -2364,6 +2364,57 @@ select {
   padding: 6px 8px;
 }
 
+.advisor-panel {
+  background: #071421;
+  border: 1px solid #24415d;
+  border-radius: 9px;
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 13px;
+}
+
+.advisor-panel > p {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.advisor-panel .button {
+  justify-self: start;
+}
+
+.advisor-result {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+.advisor-result > div {
+  display: grid;
+  gap: 5px;
+}
+
+.advisor-result span {
+  color: #8fb8ea;
+  font-size: 0.69rem;
+  font-weight: 800;
+}
+
+.advisor-result p,
+.advisor-result ul {
+  color: #c4d2df;
+  font-size: 0.72rem;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.advisor-result ul {
+  padding-inline-start: 18px;
+}
+
 .account-tabs {
   border-bottom: 1px solid var(--border);
   display: flex;

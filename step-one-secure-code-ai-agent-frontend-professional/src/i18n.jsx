@@ -51,13 +51,29 @@ const translations = {
 
 const LanguageContext = createContext(null);
 
+const LANGUAGE_STORAGE_KEY = 'raqib.language';
+
+function initialLanguage() {
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return stored === 'en' || stored === 'ar' ? stored : 'ar';
+  } catch {
+    return 'ar';
+  }
+}
+
 export function LanguageProvider({ children }) {
-  const [language, setLanguage] = useState('ar');
+  const [language, setLanguage] = useState(initialLanguage);
 
   useEffect(() => {
     const direction = language === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = language;
     document.documentElement.dir = direction;
+    try {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {
+      // Language persistence is optional; UI direction still updates safely.
+    }
   }, [language]);
 
   const value = useMemo(() => {
