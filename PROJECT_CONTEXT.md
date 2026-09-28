@@ -151,3 +151,20 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 - Verification: 162 backend tests and frontend build pass. An exact-version live OSV lookup returned IDs; this does not prove exploitability.
 - SMTP reality check: the local Hostinger mailbox credential and the newly supplied credential both returned SMTP authentication error 535. `backend/.env` is ignored; no password is tracked. OTP delivery is still blocked pending a valid mailbox credential.
 - Hostinger account shows Business Web Hosting and an unconfigured VPS offer; `raqib.alaseeltech.com` remains the default page. Hostinger documents Flask/Python as VPS-only. See `HOSTINGER_DEPLOYMENT.md`; do not publish a standalone UI as though it were the working service.
+
+
+## 2026-09-28 release-readiness continuation
+
+- Replaced the saved-analysis registry's remaining demo field assumptions with the real owner-scoped `GET /api/v1/analyses` contract.
+- Added a protected persisted-analysis route so saved results can be reopened after refresh instead of depending on React navigation state.
+- Persisted the Arabic/English interface preference locally without storing any security material.
+- Removed misleading demo-authentication language from the authenticated shell.
+- Added `POST /api/v1/analyses/<analysis_id>/advisor` for owner-scoped, integrity-verified, single-file finding advice.
+  - The API key remains server-side only.
+  - The stored analysis is integrity-checked before AI context is built.
+  - Only minimum necessary structured evidence is sent.
+  - The response is explicitly `ADVISORY_ONLY`; it cannot establish exploitability or closure.
+  - Project/archive advisory remains unsupported rather than guessed.
+- Added a real finding-level AI advisory panel to the stored single-file result view.
+- Latest verified CI baseline on this branch: **166 backend tests passed** and the frontend production build passed.
+- Deployment remains gated on a Flask-capable production host, persistent private storage, valid SMTP credentials, and server-side secrets. The current Hostinger Business Web Hosting plan is not a Flask runtime.
