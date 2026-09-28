@@ -37,6 +37,7 @@ class Config:
         "RECORD_INTEGRITY_KEY"
     )
     WORKSPACE_ROOT = os.getenv("WORKSPACE_ROOT")
+    FRONTEND_DIST_PATH = os.getenv("FRONTEND_DIST_PATH", "")
     EMAIL_VERIFICATION_ENABLED = os.getenv(
         "EMAIL_VERIFICATION_ENABLED",
         "true",
