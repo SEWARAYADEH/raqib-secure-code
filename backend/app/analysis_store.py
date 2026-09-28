@@ -126,6 +126,64 @@ class AnalysisStore:
             "result": json.loads(row["result_json"]),
         }
 
+    def list_for_owner(
+        self,
+        owner_subject: str,
+        *,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Return newest verified analysis summaries for one owner only."""
+        if not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise ValueError("limit must be between 1 and 100.")
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    analysis_id,
+                    owner_subject,
+                    created_at,
+                    artifact_sha256,
+                    result_json,
+                    integrity_mac
+                FROM analysis_records
+                WHERE owner_subject = ?
+                ORDER BY created_at DESC, analysis_id DESC
+                LIMIT ?
+                """,
+                (owner_subject, limit),
+            ).fetchall()
+
+        summaries = []
+        for row in rows:
+            expected_mac = self._mac(
+                analysis_id=row["analysis_id"],
+                owner_subject=row["owner_subject"],
+                created_at=row["created_at"],
+                artifact_sha256=row["artifact_sha256"],
+                result_json=row["result_json"],
+            )
+            if not hmac.compare_digest(
+                row["integrity_mac"],
+                expected_mac,
+            ):
+                raise AnalysisRecordIntegrityError(
+                    row["analysis_id"]
+                )
+
+            result = json.loads(row["result_json"])
+            summaries.append(
+                _record_summary(
+                    analysis_id=row["analysis_id"],
+                    owner_subject=row["owner_subject"],
+                    created_at=row["created_at"],
+                    artifact_sha256=row["artifact_sha256"],
+                    result=result,
+                )
+            )
+        return summaries
+
+
     def _initialize(self) -> None:
         with self._connect() as connection:
             connection.execute(
@@ -186,3 +244,71 @@ def _canonical_json(value: dict) -> str:
         separators=(",", ":"),
         sort_keys=True,
     )
+
+
+def _record_summary(
+    *,
+    analysis_id: str,
+    owner_subject: str,
+    created_at: str,
+    artifact_sha256: str,
+    result: dict,
+) -> dict:
+    artifact = result.get("artifact", {})
+    files = result.get("files")
+    is_project = isinstance(files, list)
+    project = result.get("project_understanding", {}) if is_project else {}
+    language = result.get("language", {}).get("candidate") if not is_project else None
+    languages = sorted(
+        {
+            item.get("language", {}).get("candidate")
+            for item in files or []
+            if item.get("language", {}).get("candidate")
+        }
+    )
+    frameworks = (
+        [item.get("name") for item in project.get("frameworks", []) if item.get("name")]
+        if is_project
+        else [
+            item.get("name")
+            for item in result.get("application_understanding", {}).get("frameworks", [])
+            if item.get("name")
+        ]
+    )
+    candidate_count = (
+        sum(
+            len(item.get("security_analysis", {}).get("candidates", []))
+            for item in files or []
+        )
+        if is_project
+        else len(result.get("security_analysis", {}).get("candidates", []))
+    )
+    observed_paths = (
+        result.get("counts", {}).get("cross_file_paths", 0)
+        + result.get("counts", {}).get("intra_function_paths", 0)
+        + result.get("counts", {}).get("inter_function_paths", 0)
+        if is_project
+        else (
+            result.get("data_flow", {}).get("counts", {}).get("observed_paths", 0)
+            + result.get("inter_function_data_flow", {}).get("counts", {}).get("observed_paths", 0)
+        )
+    )
+    return {
+        "analysis_id": analysis_id,
+        "owner_subject": owner_subject,
+        "created_at": created_at,
+        "artifact_sha256": artifact_sha256,
+        "integrity": "HMAC-SHA256",
+        "scope": "PROJECT" if is_project else "FILE",
+        "name": (
+            artifact.get("filename")
+            or artifact.get("relative_path")
+            or "analysis"
+        ),
+        "project_type": project.get("project_type") if is_project else None,
+        "language": language,
+        "languages": languages,
+        "frameworks": frameworks,
+        "candidate_findings": candidate_count,
+        "observed_paths": observed_paths,
+    }
