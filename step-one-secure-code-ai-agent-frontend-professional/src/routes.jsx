@@ -41,6 +41,7 @@ export default function AppRoutes() {
       <Route element={protectedPage(<NewAnalysisPage />)} path="/analysis/new" />
       <Route element={protectedPage(<AnalysisProgressPage />)} path="/analysis/progress" />
       <Route element={protectedPage(<AnalysisProgressPage />)} path="/analysis/progress/:analysisId" />
+      <Route element={protectedPage(<AnalysisProgressPage />)} path="/analyses/:analysisId" />
       <Route element={protectedPage(<ConfigurationPage />)} path="/configuration" />
       <Route element={protectedPage(<AccountPage />)} path="/account" />
       <Route element={protectedPage(<FindingsPage />)} path="/projects/:projectId/findings" />
