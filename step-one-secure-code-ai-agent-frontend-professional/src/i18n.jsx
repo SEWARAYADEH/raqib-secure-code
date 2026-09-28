@@ -50,14 +50,29 @@ const translations = {
 };
 
 const LanguageContext = createContext(null);
+const LANGUAGE_STORAGE_KEY = 'raqib.language';
+
+function getInitialLanguage() {
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return stored === 'en' || stored === 'ar' ? stored : 'ar';
+  } catch {
+    return 'ar';
+  }
+}
 
 export function LanguageProvider({ children }) {
-  const [language, setLanguage] = useState('ar');
+  const [language, setLanguage] = useState(getInitialLanguage);
 
   useEffect(() => {
     const direction = language === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = language;
     document.documentElement.dir = direction;
+    try {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {
+      // Preference persistence is optional and never stores security data.
+    }
   }, [language]);
 
   const value = useMemo(() => {
