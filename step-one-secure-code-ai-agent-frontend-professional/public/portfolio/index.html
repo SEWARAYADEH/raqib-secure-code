@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#081424">
-  <meta name="description" content="رقيب: من فهم بنية التطبيق إلى تتبع الدليل الأمني، بحدود واضحة ونتائج قابلة للمراجعة.">
-  <title>رقيب — من الكود إلى الدليل</title>
+  <meta name="description" content="رقيب يفهم بنية الكود ويتتبع مسارات المخاطر. ارفع ملف كود أو مشروع ZIP وشاهد الدليل وحدود التحليل بوضوح.">
+  <title>رقيب — أمن الكود بدليل واضح</title>
   <link rel="stylesheet" href="/portfolio/styles.css">
   <script src="/portfolio/app.js" defer></script>
 </head>
@@ -17,7 +17,7 @@
     <nav class="nav-inner" aria-label="التنقل الرئيسي">
       <a class="brand" href="#top" aria-label="رقيب، العودة للبداية"><span class="brand-mark">ر</span><span>رقيب<small>RAQEEB</small></span></a>
       <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة" aria-controls="nav-links" aria-expanded="false" type="button"><i></i><i></i></button>
-      <div class="nav-links" id="nav-links"><a href="#problems">المشاكل</a><a href="#upload">الملفات</a><a href="#process">بعد الرفع</a><a href="#examples">الأمثلة</a></div>
+      <div class="nav-links" id="nav-links"><a href="#problems">المشاكل</a><a href="#upload">الملفات</a><a href="#process">بعد الرفع</a></div>
       <div class="nav-actions"><button class="theme-toggle" id="theme-toggle" aria-label="تفعيل الوضع الليلي" aria-pressed="false" type="button"><span aria-hidden="true">◐</span><span id="theme-label">ليلي</span></button><a class="nav-cta" href="/login">دخول المنصة <span aria-hidden="true">↗</span></a></div>
     </nav>
   </header>
@@ -25,25 +25,29 @@
   <main id="main">
     <!-- Hero: a precise product promise and a direct call to action. -->
     <section class="hero shell" id="top" aria-labelledby="hero-title">
-      <div class="hero-copy reveal"><span class="eyebrow"><b></b> Developer Security Workbench</span><h1 id="hero-title">اعرف أين تبدأ <em>المشكلة</em> داخل تطبيقك.</h1><p class="lead">ارفع كود Python أو JavaScript أو مشروع ZIP. رقيب يفهم البنية ويتتبع المدخلات حتى العمليات الحساسة، ثم يوضح ما هو مرشح وما لم يُثبت بعد.</p><div class="hero-actions"><a class="button primary" href="/analysis/new">ابدأ بتحليل مشروعك <span aria-hidden="true">↗</span></a><a class="button secondary" href="#problems">ما الذي نفحصه؟ <span aria-hidden="true">↓</span></a></div><p class="hero-note">ليس Antivirus أو مجرد SAST أو محادثة AI. لا يعلن ثغرة مغلقة بلا اختبار وإعادة تحقق ودليل.</p></div>
-      <div class="hero-visual reveal" aria-label="رسم يوضح تسلسل مصدر البيانات ومسارها وحالة الدليل"><div class="visual-orbit"></div><div class="visual-card first"><small>01 / SOURCE</small><strong>HTTP Request</strong><span>مدخل غير موثوق</span></div><div class="visual-line"></div><div class="visual-card second"><small>02 / TRACE</small><strong>Function → Call → Sink</strong><span>علاقة مرصودة، لا مُفترضة</span></div><div class="visual-line"></div><div class="visual-card third"><small>03 / EVIDENCE</small><strong>Candidate ≠ Verified</strong><span>الإغلاق يحتاج اختبارًا ودليلًا</span></div><div class="visual-caption">SOURCE · CONTEXT · TRACE · EVIDENCE</div></div>
-      <span class="hero-index" aria-hidden="true">01 / 05</span>
+      <div class="hero-copy reveal"><span class="eyebrow"><b></b> SECURITY FOR APPLICATION CODE</span><h1 id="hero-title">رقيب واقف<br>على <em>كودك.</em></h1><p class="lead">يفهم التطبيق، يتتبّع المدخلات، ويُظهر المشكلة مع دليلها وحدود التحقق.</p><div class="hero-actions"><a class="button primary" href="/analysis/new">ابدأ بتحليل مشروعك <span aria-hidden="true">↗</span></a><a class="button secondary" href="#problems">شوف ما نفحصه <span aria-hidden="true">↓</span></a></div><p class="hero-note">.py · .js · .jsx · .zip <span>— تحليل ساكن دون تشغيل الكود</span></p></div>
+      <div class="hero-visual reveal" role="img" aria-label="رقيب يقف حارسًا على نافذة كود ويتتبع مسار البيانات">
+        <div class="guardian-halo" aria-hidden="true"></div>
+        <div class="code-window" aria-hidden="true"><div class="code-toolbar"><i></i><i></i><i></i><span>app / routes.py</span></div><div class="code-lines"><span class="code-line a"></span><span class="code-line b"></span><span class="code-line c"></span><span class="code-line d"></span><span class="code-line e"></span><span class="code-line f"></span></div><span class="trace-node source"></span><span class="trace-path"></span><span class="trace-node sink"></span></div>
+        <div class="guardian" aria-hidden="true"><span class="guardian-head"><i class="guardian-visor"></i></span><span class="guardian-body"><i class="guardian-shield"></i></span><span class="guardian-arm left"></span><span class="guardian-arm right"></span><span class="guardian-leg left"></span><span class="guardian-leg right"></span></div>
+        <span class="visual-caption">TRACE · CONTEXT · EVIDENCE</span>
+      </div>
     </section>
 
     <!-- Five focused packs: live status is loaded from the backend contract. -->
     <section class="focus-section shell section-space" id="problems" aria-labelledby="problems-title">
-      <div class="section-heading"><span class="kicker">01 — النطاق الأمني</span><h2 id="problems-title">أهم المشاكل اللي <em>بنركز عليها</em></h2><p>خمسة مجالات، وحالة كل واحد من محرك رقيب الفعلي.</p></div>
+      <div class="section-heading"><span class="kicker">01 / FOCUS</span><h2 id="problems-title">أهم المشاكل اللي <em>بنركز عليها</em></h2><p>خمسة مجالات؛ الحالة تأتي من المحرك الفعلي.</p></div>
       <div class="focus-grid" id="pack-grid" aria-live="polite"><p>جارٍ قراءة حالة الحزم من الخادم…</p></div>
     </section>
 
     <!-- Supported formats and direct entry to the real upload workflow. -->
     <section class="upload-section section-space" id="upload" aria-labelledby="upload-title"><div class="shell upload-layout">
-      <div><span class="kicker">02 — مدخل واضح</span><h2 id="upload-title">ارفع الكود أو المشروع</h2><p>رقيب يفحص محتوى المشروع وبنيته، مش مجرد اسم الملف أو امتداده.</p><div class="format-grid" id="format-grid" aria-live="polite"><p>جارٍ قراءة أنواع الملفات…</p></div><p class="format-note">داخل ZIP: Languages · Frameworks · Routes · Functions · Imports · Calls · Inputs · Database Operations · Security Traces، حسب الأدلة المتاحة.</p></div>
-      <div class="upload-callout"><span class="card-no">SAFE INTAKE</span><h3>ابدأ بتحليل مشروعك</h3><p>اختر ملف كود أو مشروع ZIP. بعد الاختيار سترى اسمه، حجمه، نوعه، ونوع التحليل قبل البدء.</p><div class="upload-choice"><a href="/analysis/new">Code File <small>.py · .js · .jsx</small></a><a href="/analysis/new">ZIP Project <small>.zip</small></a></div><small>لا يُشغّل الكود المرفوع، ولا يُكتب فوق الأصل.</small></div>
+      <div><span class="kicker">02 / INPUT</span><h2 id="upload-title">ارفع الكود أو المشروع</h2><p>نفحص المحتوى والبنية، مش اسم الملف فقط.</p><div class="format-grid" id="format-grid" aria-live="polite"><p>جارٍ قراءة أنواع الملفات…</p></div><p class="format-note">داخل ZIP: لغات · أطر عمل · مسارات · دوال · مدخلات · عمليات حساسة، حسب الدليل المتاح.</p></div>
+      <div class="upload-callout"><span class="upload-arrow" aria-hidden="true">↑</span><h3>ابدأ بتحليل مشروعك</h3><div class="upload-choice"><a href="/analysis/new">Code File <small>.py · .js · .jsx</small></a><a href="/analysis/new">ZIP Project <small>.zip</small></a></div><small>لا تشغيل للكود المرفوع · لا تعديل على الأصل</small></div>
     </div></section>
 
     <!-- Horizontal process carousel: buttons, keys, and native scroll snap. -->
-    <section class="process shell section-space" id="process" aria-labelledby="process-title"><div class="section-heading reveal"><span class="kicker">03 — بعد الرفع</span><h2 id="process-title">من الملف إلى <em>الدليل.</em></h2><p>اسحب أفقيًا أو استخدم الأسهم. الحالة الرمادية تعني أن المرحلة غير متاحة بعد.</p></div><div class="process-controls reveal"><div class="process-count"><strong id="process-current">01</strong><span>/ 09</span></div><div><button id="step-prev" aria-label="الخطوة السابقة" type="button">→</button><button id="step-next" aria-label="الخطوة التالية" type="button">←</button></div></div><div class="process-track" id="process-track" tabindex="0" aria-label="خطوات تحليل رقيب">
+    <section class="process shell section-space" id="process" aria-labelledby="process-title"><div class="section-heading reveal"><span class="kicker">03 / WORKFLOW</span><h2 id="process-title">شو بصير <em>بعد الرفع؟</em></h2><p>اسحب الخطوات. الرمادي يعني أن المرحلة غير متاحة بعد.</p></div><div class="process-controls reveal"><div class="process-count"><strong id="process-current">01</strong><span>/ 09</span></div><div><button id="step-prev" aria-label="الخطوة السابقة" type="button">→</button><button id="step-next" aria-label="الخطوة التالية" type="button">←</button></div></div><div class="process-track" id="process-track" tabindex="0" aria-label="خطوات تحليل رقيب">
       <article class="process-card"><span>01 / UPLOAD</span><h3>رفع</h3><p>ملف كود أو مشروع ZIP.</p><small>AVAILABLE</small></article>
       <article class="process-card"><span>02 / UNDERSTAND</span><h3>فهم</h3><p>بنية التطبيق وعلاقاته.</p><small>PARTIAL</small></article>
       <article class="process-card"><span>03 / TRACE</span><h3>تتبّع</h3><p>مدخلات حتى عمليات حساسة.</p><small>PARTIAL</small></article>
@@ -56,13 +60,10 @@
     </div><div class="process-progress" aria-hidden="true"><span id="process-progress"></span></div></section>
 
     <!-- Seeded local evaluation examples; never user-uploaded source. -->
-    <section class="examples section-space" id="examples" aria-labelledby="examples-title"><div class="shell"><div class="section-heading reveal"><span class="kicker">04 — أمثلة قابلة للفحص</span><h2 id="examples-title">أمثلة من <em>قاعدة التقييم.</em></h2><p>حالات اصطناعية مخزنة محليًا وحُللت بمحرك رقيب. هي اختبارات تصنيف ساكنة، لا إثبات استغلال أو إصلاح.</p></div><p class="example-status" id="example-status" role="status">جارٍ تحميل أمثلة التقييم…</p><div class="example-grid" id="example-grid"></div><p class="example-note">لا تُعرض ملفات المستخدمين أو أسرارهم هنا. إذا لم تُجهّز قاعدة الأمثلة تظهر الحالة بوضوح.</p></div></section>
-
-    <!-- Final call to action, with the OTP delivery limitation stated. -->
-    <section class="closing shell reveal" aria-labelledby="closing-title"><span class="kicker">05 — ابدأ من الحقيقة</span><h2 id="closing-title">الكود يشرح نفسه<br>عندما تتبّع <em>دليله.</em></h2><a class="button primary" href="/login">ادخل إلى رقيب <span aria-hidden="true">↗</span></a><p>الدخول الأول برمز بريد يحتاج اعتماد SMTP صالحًا. بعد التحقق، يمكن إعداد كلمة مرور.</p></section>
+    <section class="examples shell" id="examples" aria-labelledby="examples-title"><details><summary><span id="examples-title">أمثلة تقييم محفوظة</span><small>حالات اصطناعية حُللت بالمحرك ↓</small></summary><p class="example-status" id="example-status" role="status">جارٍ تحميل الأمثلة…</p><div class="example-grid" id="example-grid"></div><p class="example-note">أمثلة تصنيف ساكن فقط؛ لا تعرض كود المستخدم أو تدّعي إثبات الاستغلال.</p></details></section>
   </main>
 
   <!-- Footer: quick navigation and clear product identity. -->
-  <footer class="site-footer"><div class="shell footer-grid"><div><a class="footer-brand" href="#top">رقيب <span>RAQEEB</span></a><p>فهم، تتبّع، ثم إثبات.</p></div><nav aria-label="روابط سريعة"><strong>استكشف</strong><a href="#problems">المشاكل</a><a href="#upload">الملفات</a><a href="#process">بعد الرفع</a><a href="#examples">الأمثلة</a></nav><nav aria-label="روابط المنصة"><strong>المنصة</strong><a href="/login">تسجيل الدخول</a><a href="/security-trust">نموذج الثقة</a><a href="/how-it-works">التفاصيل التقنية</a></nav><div class="footer-end"><span>SECURE CODE. CLEAR EVIDENCE.</span><small>© 2026 Raqeeb</small></div></div></footer>
+  <footer class="site-footer"><div class="shell footer-grid"><a class="footer-brand" href="#top">رقيب <span>RAQEEB</span></a><p>أمن الكود يبدأ بفهمه.</p><nav aria-label="روابط سريعة"><a href="#problems">المشاكل</a><a href="#upload">الملفات</a><a href="#process">الخطوات</a><a href="/login">الدخول</a></nav><small>© 2026 Raqeeb</small></div></footer>
 </body>
 </html>
