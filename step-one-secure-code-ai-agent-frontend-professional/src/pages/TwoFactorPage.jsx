@@ -34,7 +34,7 @@ export default function TwoFactorPage() {
 
     try {
       await completeTwoFactor(code);
-      navigate(location.state?.from ?? '/projects', { replace: true });
+      navigate(location.state?.from ?? '/account', { replace: true });
     } catch {
       setError(ar ? 'الرمز غير صحيح أو منتهي الصلاحية.' : 'The code is invalid or expired.');
       setCode('');

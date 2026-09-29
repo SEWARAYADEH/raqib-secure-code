@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from flask import Blueprint, current_app, jsonify, request, session
+import time
 
 from app.api_errors import api_error
 from app.auth import (
     SCOPE_ANALYSIS_CREATE,
     SCOPE_ANALYSIS_READ,
+    email_address_allowed,
     trusted_frontend_origin,
 )
 import secrets
@@ -15,6 +17,7 @@ from app.email_verification import (
     ChallengeRejected,
     DeliveryUnavailable,
 )
+from app.password_auth import PasswordAuthenticationError, PasswordPolicyError
 
 
 email_verification_api = Blueprint("email_verification_api", __name__)
@@ -113,8 +116,69 @@ def verify_email_challenge():
         "role": "VERIFIED_USER",
         "scopes": [SCOPE_ANALYSIS_CREATE, SCOPE_ANALYSIS_READ],
     }
+    session["email_verified_at"] = int(time.time())
     session.permanent = True
     return jsonify({"verified": True, "email": verified_email})
+
+
+@email_verification_api.post("/api/v1/auth/password")
+def sign_in_with_password():
+    if not trusted_frontend_origin():
+        return api_error(status_code=403, code="UNTRUSTED_REQUEST_ORIGIN", message="The request origin is not allowed.")
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return api_error(status_code=400, code="INVALID_REQUEST", message="Email and password are required.")
+    email, password = payload.get("email"), payload.get("password")
+    if not isinstance(email, str) or not isinstance(password, str):
+        return api_error(status_code=400, code="INVALID_REQUEST", message="Email and password are required.")
+    normalized_email = email.strip().casefold()
+    store = current_app.extensions["password_store"]
+    authenticated = store.authenticate(email, password, request.remote_addr or "")
+    if not authenticated or not email_address_allowed(normalized_email):
+        return api_error(status_code=401, code="PASSWORD_AUTH_FAILED", message="Email or password is invalid.")
+    session.clear()
+    session["principal"] = {
+        "subject": normalized_email,
+        "role": "VERIFIED_USER",
+        "scopes": [SCOPE_ANALYSIS_CREATE, SCOPE_ANALYSIS_READ],
+    }
+    session.permanent = True
+    return jsonify({"authenticated": True, "email": normalized_email})
+
+
+@email_verification_api.post("/api/v1/auth/password/setup")
+def set_account_password():
+    if not trusted_frontend_origin():
+        return api_error(status_code=403, code="UNTRUSTED_REQUEST_ORIGIN", message="The request origin is not allowed.")
+    principal = session.get("principal")
+    if not isinstance(principal, dict) or not isinstance(principal.get("subject"), str):
+        return api_error(status_code=401, code="SESSION_NOT_AUTHENTICATED", message="A verified session is required.")
+    if not email_address_allowed(principal["subject"]):
+        session.clear()
+        return api_error(status_code=401, code="SESSION_NOT_AUTHENTICATED", message="A verified session is required.")
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return api_error(status_code=400, code="INVALID_REQUEST", message="Password fields are required.")
+    password = payload.get("password")
+    current_password = payload.get("current_password", "")
+    if not isinstance(password, str) or not isinstance(current_password, str):
+        return api_error(status_code=400, code="INVALID_REQUEST", message="Password fields are required.")
+    try:
+        verified_at = session.get("email_verified_at")
+        allow_reset = (
+            isinstance(verified_at, int)
+            and 0 <= int(time.time()) - verified_at <= 600
+        )
+        current_app.extensions["password_store"].set_password(
+            principal["subject"], password, current_password,
+            allow_verified_email_reset=allow_reset and not current_password,
+        )
+    except PasswordPolicyError as error:
+        return api_error(status_code=400, code="PASSWORD_POLICY_REJECTED", message=str(error))
+    except PasswordAuthenticationError:
+        return api_error(status_code=401, code="CURRENT_PASSWORD_INVALID", message="Current password is invalid.")
+    session.pop("email_verified_at", None)
+    return jsonify({"password_configured": True})
 
 
 @email_verification_api.get("/api/v1/auth/session")
@@ -126,6 +190,9 @@ def get_session():
             code="SESSION_NOT_AUTHENTICATED",
             message="No authenticated session exists.",
         )
+    if not email_address_allowed(principal.get("subject")):
+        session.clear()
+        return api_error(status_code=401, code="SESSION_NOT_AUTHENTICATED", message="No authenticated session exists.")
     return jsonify(
         {
             "authenticated": True,
@@ -133,6 +200,11 @@ def get_session():
                 "subject": principal.get("subject"),
                 "role": principal.get("role"),
             },
+            "password_configured": current_app.extensions["password_store"].has_password(
+                principal["subject"]
+            ),
+            "password_reset_allowed": isinstance(session.get("email_verified_at"), int)
+            and 0 <= int(time.time()) - session["email_verified_at"] <= 600,
         }
     )
 

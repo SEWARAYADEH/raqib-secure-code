@@ -1,23 +1,20 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { getWorkbench } from '../api/endpoints';
+import { getStoredAnalysis } from '../api/endpoints';
 import AppShell from '../components/AppShell';
 import AsyncState from '../components/AsyncState';
-import StatusBadge from '../components/StatusBadge';
-import UpdatedFileDownload from '../components/UpdatedFileDownload';
 import useAsyncResource from '../hooks/useAsyncResource';
 import { useLanguage } from '../i18n';
 
-function severityTone(severity) {
-  if (severity === 'Critical') return 'danger';
-  if (severity === 'High') return 'warning';
-  return 'info';
+function locateFinding(result, findingId) {
+  for (const file of result.files ?? [result]) {
+    const finding = file.security_analysis?.candidates?.find((item) => item.id === findingId);
+    if (finding) return { finding, file };
+  }
+  return null;
 }
 
-function severityLabel(severity, ar) {
-  if (!ar) return severity;
-  if (severity === 'Critical') return 'حرجة';
-  if (severity === 'High') return 'عالية';
-  return 'متوسطة';
+function EvidenceSection({ label, title, children, unavailable = false }) {
+  return <section className={`evidence-section${unavailable ? ' unavailable' : ''}`}><span>{label}</span><h2>{title}</h2><div>{children}</div></section>;
 }
 
 export default function FindingDetailPage() {
@@ -25,114 +22,29 @@ export default function FindingDetailPage() {
   const { projectId, findingId } = useParams();
   const { language } = useLanguage();
   const ar = language === 'ar';
-  const { data, error, loading, reload } = useAsyncResource(getWorkbench, []);
-  const finding = data?.findings.find((item) => item.id === findingId) ?? null;
-  const file = finding ? data?.files.find((item) => item.id === finding.fileId) : null;
+  const { data, error, loading, reload } = useAsyncResource(() => getStoredAnalysis(projectId), [projectId]);
+  const result = data?.record?.result;
+  const match = result ? locateFinding(result, findingId) : null;
+  const finding = match?.finding;
+  const path = match?.file?.artifact?.relative_path ?? match?.file?.artifact?.filename ?? 'Unknown';
 
-  return (
-    <AppShell>
-      <AsyncState error={error} loading={loading} loadingLabel={ar ? 'تحميل تفاصيل النتيجة…' : 'Loading finding detail…'} onRetry={reload} />
-
-      {!loading && !error && data && !finding ? (
-        <section className="empty-panel">
-          <strong>{ar ? 'لم يتم العثور على النتيجة.' : 'Finding not found.'}</strong>
-          <button className="button button-secondary" onClick={() => navigate(`/projects/${projectId}/findings`)} type="button">
-            {ar ? 'العودة للنتائج' : 'Back to findings'}
-          </button>
-        </section>
-      ) : null}
-
-      {!loading && !error && finding && file ? (
-        <article className="finding-detail-page">
-          <header className="finding-detail-header">
-            <div>
-              <button className="text-link detail-back" onClick={() => navigate(`/projects/${projectId}/findings`)} type="button">
-                {ar ? 'النتائج' : 'Findings'}
-              </button>
-              <div className="finding-id-row">
-                <span className="technical-value">{finding.id}</span>
-                <StatusBadge tone={severityTone(finding.severity)}>{severityLabel(finding.severity, ar)}</StatusBadge>
-                <StatusBadge tone={finding.verification.closure === 'Verified remediated' ? 'success' : 'neutral'}>
-                  {ar
-                    ? finding.verification.closure === 'Verified remediated' ? 'تم التحقق من المعالجة' : 'تحتاج تحقق'
-                    : finding.verification.closure}
-                </StatusBadge>
-              </div>
-              <h1>{ar ? finding.titleAr ?? finding.title : finding.title}</h1>
-              <p className="technical-value">{file.path} · line {finding.line} · {finding.cwe}</p>
-            </div>
-            <button className="button button-primary" onClick={() => navigate(`/projects/${projectId}/workbench`)} type="button">
-              {ar ? 'فتحها في Workbench' : 'Open in workbench'}
-            </button>
-          </header>
-
-          <section className="finding-detail-section">
-            <span className="section-label">{ar ? 'ما الذي تم اكتشافه' : 'WHAT WAS DETECTED'}</span>
-            <h2>{ar ? 'السبب الجذري' : 'Root cause'}</h2>
-            <p>{ar ? finding.rootCauseAr ?? finding.rootCause : finding.rootCause}</p>
-          </section>
-
-          <section className="finding-detail-grid">
-            <article>
-              <span className="section-label">{ar ? 'الدليل' : 'EVIDENCE'}</span>
-              <p>{ar ? finding.evidenceAr ?? finding.evidence : finding.evidence}</p>
-            </article>
-            <article>
-              <span className="section-label">{ar ? 'السياق الأمني' : 'SECURITY CONTEXT'}</span>
-              <dl className="detail-definition-list">
-                <div><dt>Source</dt><dd className="technical-value">{finding.source}</dd></div>
-                <div><dt>Sink</dt><dd className="technical-value">{finding.sink}</dd></div>
-                <div><dt>Standard</dt><dd className="technical-value technical-wrap">{finding.standard}</dd></div>
-              </dl>
-            </article>
-          </section>
-
-          <section className="finding-detail-section">
-            <span className="section-label">TRACE</span>
-            <div className="trace-path" dir="ltr">
-              {finding.trace.map((item, index) => (
-                <span key={item}>{item}{index < finding.trace.length - 1 ? <b>→</b> : null}</span>
-              ))}
-            </div>
-          </section>
-
-          <section className="finding-detail-section code-evidence-section">
-            <div className="section-heading-inline">
-              <div>
-                <span className="section-label">{ar ? 'الكود الحالي' : 'CURRENT CODE'}</span>
-                <h2>{ar ? 'السطر المتأثر والسياق القريب' : 'Affected code and nearby context'}</h2>
-              </div>
-              <span className="technical-value">{file.path}</span>
-            </div>
-            <pre className="detail-code" dir="ltr">{finding.weakCode}</pre>
-          </section>
-
-          <section className="finding-detail-section code-evidence-section">
-            <span className="section-label">{ar ? 'التغيير المقترح' : 'PROPOSED SECURE CHANGE'}</span>
-            <h2>{ar ? 'Secure Candidate — يحتاج تحقق' : 'Secure Candidate — verification required'}</h2>
-            <div className="detail-diff" dir="ltr">
-              <div><span>ORIGINAL</span><pre>{finding.weakCode}</pre></div>
-              <div><span>UPDATED</span><pre>{finding.secureCode}</pre></div>
-            </div>
-          </section>
-
-          <section className="finding-detail-section">
-            <span className="section-label">{ar ? 'التحقق' : 'VERIFICATION'}</span>
-            <div className="verification-list detail-verification-list">
-              {Object.entries(finding.verification).map(([key, value]) => (
-                <div className="verification-row" key={key}>
-                  <span className="technical-value">{key}</span>
-                  <strong>{value}</strong>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="finding-detail-section artifact-section">
-            <UpdatedFileDownload ar={ar} finding={finding} />
-          </section>
-        </article>
-      ) : null}
-    </AppShell>
-  );
+  return <AppShell><section className="evidence-page">
+    <AsyncState error={error} loading={loading} loadingLabel={ar ? 'تحميل الدليل المحفوظ…' : 'Loading saved evidence…'} onRetry={reload} />
+    {!loading && !error && !match && <div className="empty-panel">{ar ? 'لم توجد هذه النتيجة في التحليل المحفوظ.' : 'This finding was not found in the saved analysis.'}</div>}
+    {match && <>
+      <header className="evidence-header"><button className="text-link" onClick={() => navigate(`/projects/${projectId}/findings`)} type="button">← {ar ? 'كل النتائج' : 'All findings'}</button><span className="candidate-state">CANDIDATE · NOT VERIFIED</span><h1>{finding.pack_assessment?.pack?.replaceAll('_', ' ') ?? finding.sink?.category}</h1><p dir="ltr">{path} · {finding.scope?.function ?? 'Unresolved'}() · Line {finding.sink?.start_line ?? 'Unknown'}</p></header>
+      <div className="evidence-sequence">
+        <EvidenceSection label="WHERE" title={ar ? 'وين المشكلة؟' : 'Where?'}><code dir="ltr">{finding.sink?.target ?? 'Unknown'} · {path}:{finding.sink?.start_line ?? '?'}</code></EvidenceSection>
+        <EvidenceSection label="WHY" title={ar ? 'ليش اعتُبرت مرشحًا؟' : 'Why a candidate?'}><p>{finding.root_cause?.statement ?? 'Unresolved'}</p><small>{finding.pack_assessment?.basis ?? finding.evidence_strength}</small></EvidenceSection>
+        <EvidenceSection label="TRACE" title={ar ? 'مسار البيانات المرصود' : 'Observed data path'}><ol className="evidence-trace">{finding.trace?.map((step, index) => <li key={`${step.kind}-${index}`}><b>{step.kind}</b><code dir="ltr">{step.target ?? step.value ?? 'Unresolved'} · line {step.line ?? '?'}</code></li>)}</ol></EvidenceSection>
+        <EvidenceSection label="VERIFICATION" title={ar ? 'هل تم إثباتها؟' : 'Verified?'}><strong>{finding.exploitability?.status ?? 'UNVERIFIED'}</strong><p>{ar ? 'المسار الساكن لا يثبت قابلية الاستغلال.' : 'A static path does not prove exploitability.'}</p></EvidenceSection>
+        <EvidenceSection label="ROOT CAUSE" title={ar ? 'السبب الجذري' : 'Root cause'}><strong>{finding.root_cause?.status ?? 'UNRESOLVED'}</strong><p>{finding.root_cause?.statement ?? 'Unresolved'}</p></EvidenceSection>
+        <EvidenceSection label="FIX" title={ar ? 'الإصلاح' : 'Fix'} unavailable><strong>{finding.remediation?.status ?? 'NOT_PROPOSED'}</strong><p>{ar ? 'لا يوجد إصلاح معتمد قبل التحقق من المشكلة.' : 'No approved fix before exploitability verification.'}</p></EvidenceSection>
+        <EvidenceSection label="DIFF" title={ar ? 'قبل / بعد' : 'Before / after'} unavailable><strong>NOT AVAILABLE</strong></EvidenceSection>
+        <EvidenceSection label="TESTS" title={ar ? 'اختبار الوظيفة' : 'Functional tests'} unavailable><strong>NOT RUN</strong></EvidenceSection>
+        <EvidenceSection label="RE-VERIFY" title={ar ? 'إعادة الفحص والتتبع' : 'Re-scan and re-trace'} unavailable><strong>NOT RUN</strong></EvidenceSection>
+        <EvidenceSection label="EVIDENCE" title={ar ? 'دليل الإغلاق' : 'Closure evidence'} unavailable><strong>{finding.closure?.status ?? 'NOT_AVAILABLE'}</strong></EvidenceSection>
+      </div>
+    </>}
+  </section></AppShell>;
 }

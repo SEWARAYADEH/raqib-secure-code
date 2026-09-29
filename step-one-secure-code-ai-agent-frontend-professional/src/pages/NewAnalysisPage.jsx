@@ -1,16 +1,31 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createAnalysis, getAnalysisOptions } from '../api/endpoints';
 import AppShell from '../components/AppShell';
 import AsyncState from '../components/AsyncState';
-import Icon from '../components/Icon';
 import useAsyncResource from '../hooks/useAsyncResource';
 import { useLanguage } from '../i18n';
 
-function bytesToLabel(bytes) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
-  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+const FORMATS = [
+  ['Python', '.py'], ['JavaScript', '.js'],
+  ['JavaScript JSX', '.jsx'], ['Full Project', '.zip'],
+];
+
+function formatSize(bytes) {
+  return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function preliminaryLanguage(fileName) {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  if (extension === 'py') return 'Python';
+  if (extension === 'js') return 'JavaScript';
+  if (extension === 'jsx') return 'JavaScript JSX';
+  return 'Unknown until content analysis';
+}
+
+function packLabel(pack) {
+  if (pack.can_verify_exploitability && pack.can_generate_verified_patch && pack.can_close) return 'Verification & Repair Available';
+  return pack.status === 'PARTIAL_STATIC_CANDIDATES' ? 'Analysis Available' : 'Coming / In Development';
 }
 
 export default function NewAnalysisPage() {
@@ -22,175 +37,48 @@ export default function NewAnalysisPage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const selectedScope = options?.scopes?.find((item) => item.id === scope);
+  const accepted = new Set(options?.scopes?.flatMap((item) => item.accept.split(',')) ?? []);
 
-  const selectedScope = useMemo(() => {
-    return options?.scopes.find((item) => item.id === scope) ?? options?.scopes[0];
-  }, [options, scope]);
-
-  const onFile = (event) => {
-    setSelectedFile(event.target.files?.[0] ?? null);
-    setFormError('');
-  };
-
-  const submit = async (event) => {
+  async function submit(event) {
     event.preventDefault();
-
-    if (!selectedFile) {
-      setFormError(ar ? 'اختر ملفًا أو مشروعًا أولًا.' : 'Choose a file or project first.');
-      return;
-    }
-
-    const limit = selectedScope?.max_bytes ?? (scope === 'project' ? 20 * 1024 * 1024 : 2 * 1024 * 1024);
-    if (selectedFile.size === 0 || selectedFile.size > limit) {
-      setFormError(ar
-        ? `حجم الملف يجب أن يكون أكبر من صفر وأقل من ${bytesToLabel(limit)}.`
-        : `File size must be greater than zero and at most ${bytesToLabel(limit)}.`);
-      return;
-    }
-
-    setSubmitting(true);
     setFormError('');
-
-    try {
-      const analysis = await createAnalysis({
-        file: selectedFile,
-        scope,
-      });
-      setSubmitting(false);
-      const resultPath = analysis.record?.persisted && analysis.record.analysis_id
-        ? `/analysis/progress/${encodeURIComponent(analysis.record.analysis_id)}`
-        : '/analysis/progress';
-      navigate(resultPath, {
-        state: {
-          analysis,
-          input: {
-            scope,
-            fileName: selectedFile.name,
-          },
-        },
-      });
-    } catch (submitError) {
-      setSubmitting(false);
-      setFormError(
-        submitError instanceof Error
-          ? submitError.message
-          : (ar ? 'تعذر بدء التحليل.' : 'Unable to start analysis.'),
-      );
+    if (!selectedFile) {
+      setFormError(ar ? 'اختر ملفًا أولًا.' : 'Choose a file first.');
+      return;
     }
-  };
+    if (selectedFile.size === 0 || selectedFile.size > selectedScope.max_bytes) {
+      setFormError(ar ? `الحجم المسموح: أكبر من صفر وحتى ${formatSize(selectedScope.max_bytes)}.` : `Allowed size: above zero and up to ${formatSize(selectedScope.max_bytes)}.`);
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const analysis = await createAnalysis({ file: selectedFile, scope });
+      const path = analysis.record?.persisted && analysis.record.analysis_id
+        ? `/analysis/progress/${encodeURIComponent(analysis.record.analysis_id)}` : '/analysis/progress';
+      navigate(path, { state: { analysis, input: { scope, fileName: selectedFile.name } } });
+    } catch (failure) {
+      setFormError(failure instanceof Error ? failure.message : (ar ? 'تعذر التحليل.' : 'Analysis failed.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-  return (
-    <AppShell>
-      <section className="narrow-page">
-        <div className="page-title-row compact">
-          <div>
-            <span className="eyebrow">{ar ? 'مدخل واحد واضح' : 'Focused intake'}</span>
-            <h1>{ar ? 'تحليل أمني جديد' : 'New security analysis'}</h1>
-            <p>
-              {ar
-                ? 'اختر ملف Python أو JavaScript/JSX، أو مشروع ZIP بهذه اللغات. يفحص النظام المحتوى والبنية دون تشغيل الكود.'
-                : 'Choose a Python or JavaScript/JSX file, or a ZIP project in these languages. Content and structure are analyzed without execution.'}
-            </p>
-          </div>
+  return <AppShell><section className="intake-page">
+    <header className="intake-heading"><span className="eyebrow">SAFE CODE INTAKE</span><h1>{ar ? 'ابدأ بتحليل مشروعك' : 'Analyze your project'}</h1><p>{ar ? 'ملف كود أو ZIP. رقيب يقرأ المحتوى والبنية دون تشغيل الكود.' : 'Code file or ZIP. Raqeeb reads content and structure without executing it.'}</p></header>
+    <AsyncState error={error} loading={loading} loadingLabel={ar ? 'تحميل أنواع الملفات…' : 'Loading supported formats…'} onRetry={reload} />
+    {!loading && !error && options && <>
+      <form className="intake-panel" onSubmit={submit}>
+        <div className="intake-scope" role="group" aria-label={ar ? 'نوع الرفع' : 'Upload type'}>
+          {options.scopes.map((item) => <button aria-pressed={scope === item.id} className={scope === item.id ? 'active' : ''} key={item.id} onClick={() => { setScope(item.id); setSelectedFile(null); setFormError(''); }} type="button">{item.id === 'file' ? 'Code File' : 'ZIP Project'}<small>{item.accept.replaceAll(',', ' · ')}</small></button>)}
         </div>
-
-        <AsyncState
-          error={error}
-          loading={loading}
-          loadingLabel={ar ? 'تحميل خيارات التحليل…' : 'Loading analysis options…'}
-          onRetry={reload}
-        />
-
-        {!loading && !error && options ? (
-          <form className="analysis-form" onSubmit={submit}>
-            <fieldset className="form-section">
-              <legend>{ar ? '1. ما الذي تريد تحليله؟' : '1. What do you want to analyze?'}</legend>
-              <div className="scope-switch">
-                {options.scopes.map((item) => (
-                  <button
-                    aria-pressed={scope === item.id}
-                    className={scope === item.id ? 'active' : ''}
-                    key={item.id}
-                    onClick={() => {
-                      setScope(item.id);
-                      setSelectedFile(null);
-                    }}
-                    type="button"
-                  >
-                    <Icon name={item.id === 'file' ? 'file' : 'projects'} />
-                    {item.id === 'file'
-                      ? ar ? 'ملف كود' : 'Code file'
-                      : ar ? 'مشروع ZIP' : 'ZIP project'}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="form-section">
-              <legend>{ar ? '2. اختر المدخل' : '2. Choose the input'}</legend>
-              <label className="upload-zone">
-                <input
-                  accept={selectedScope?.accept}
-                  onChange={onFile}
-                  type="file"
-                />
-                <span className="upload-icon"><Icon name="upload" size={28} /></span>
-                <strong>
-                  {selectedFile?.name ? <bdi dir="ltr">{selectedFile.name}</bdi> : (ar ? 'اختر من جهازك' : 'Choose from your device')}
-                </strong>
-                <small>
-                  {selectedFile
-                    ? <span className="technical-value">{selectedFile.name} · {bytesToLabel(selectedFile.size)}</span>
-                    : scope === 'file'
-                      ? ar ? 'ملف واحد للتحليل الساكن.' : 'One file for static analysis.'
-                      : ar ? 'ملف ZIP للمشروع ضمن حدود الاستخراج الآمن.' : 'Project ZIP with secure extraction limits.'}
-                </small>
-              </label>
-            </fieldset>
-
-            <fieldset className="form-section">
-              <legend>{ar ? '3. ما الذي سيفعله رقيب؟' : '3. What will Raqeeb do?'}</legend>
-              <div className="analysis-metrics">
-                <div><span>{ar ? 'المدخل' : 'Intake'}</span><strong>{ar ? 'فحص آمن' : 'Safe'}</strong></div>
-                <div><span>{ar ? 'التنفيذ' : 'Execution'}</span><strong>{options.safety.uploaded_code_execution ? 'ENABLED' : 'DISABLED'}</strong></div>
-                <div><span>{ar ? 'الأصل' : 'Original'}</span><strong>{options.safety.original_overwritten ? 'OVERWRITTEN' : 'PRESERVED'}</strong></div>
-                <div><span>{ar ? 'سياسة الادعاء' : 'Claim policy'}</span><strong>{options.safety.analysis_claim_policy}</strong></div>
-              </div>
-              <p>
-                {ar
-                  ? 'التسلسل: فهم البنية → تتبع البيانات → مرشح أمني → تحقق من القابلية للاستغلال عند توفر بيئة العزل → إصلاح أدنى → اختبار الوظيفة → إعادة الفحص والتتبع وإعادة السيناريو → دليل إغلاق.'
-                  : 'Flow: understand structure → trace data → security candidate → verify exploitability when isolation is available → minimal repair → functional tests → re-scan, re-trace and replay → closure evidence.'}
-              </p>
-            </fieldset>
-
-            <fieldset className="form-section">
-              <legend>{ar ? '4. الحزم الأمنية المركّزة' : '4. Focused security packs'}</legend>
-              <div className="analysis-metrics">
-                {options.security_packs.map((pack) => (
-                  <div key={pack.id}>
-                    <span>{pack.display_name}</span>
-                    <strong>{pack.status}</strong>
-                  </div>
-                ))}
-              </div>
-              <p>
-                {ar
-                  ? 'حالة الحزمة تعكس قدرة المحرك الحالية فقط. NOT_IMPLEMENTED لا يعني أن المشروع المرفوع آمن من هذه الثغرة.'
-                  : 'Pack status describes engine capability only. NOT_IMPLEMENTED never means the uploaded project is safe from that weakness.'}
-              </p>
-            </fieldset>
-
-            {formError ? <p className="form-error" role="alert">{formError}</p> : null}
-
-            <button className="button button-primary button-wide" disabled={submitting} type="submit">
-              <Icon name="shield" />
-              {submitting
-                ? ar ? 'تحليل المدخل الآمن…' : 'Analyzing secure input…'
-                : ar ? 'بدء التحليل الآمن' : 'Start secure analysis'}
-            </button>
-          </form>
-        ) : null}
-      </section>
-    </AppShell>
-  );
+        <label className="intake-drop"><span className="intake-upload-icon" aria-hidden="true">↑</span><strong>{selectedFile ? <bdi dir="ltr">{selectedFile.name}</bdi> : (ar ? 'اختر ملفًا من جهازك' : 'Choose a file from your device')}</strong><small>{ar ? 'فحص محتوى وبنية · دون تنفيذ أو تعديل الأصل' : 'Content and structure analysis · no execution or overwrite'}</small><input accept={selectedScope?.accept} onChange={(event) => { setSelectedFile(event.target.files?.[0] ?? null); setFormError(''); }} type="file" /></label>
+        {selectedFile && <dl className="intake-file-facts"><div><dt>{ar ? 'الملف' : 'File'}</dt><dd dir="ltr">{selectedFile.name}</dd></div><div><dt>{ar ? 'النوع' : 'Type'}</dt><dd>{scope === 'project' ? 'ZIP Project' : 'Code File'}</dd></div><div><dt>{ar ? 'الحجم' : 'Size'}</dt><dd>{formatSize(selectedFile.size)}</dd></div><div><dt>{ar ? 'اللغة المتوقعة' : 'Expected language'}</dt><dd>{scope === 'project' ? 'Unknown until content analysis' : preliminaryLanguage(selectedFile.name)} <small>{ar ? 'أولي فقط' : 'preliminary'}</small></dd></div><div><dt>{ar ? 'التحليل' : 'Analysis'}</dt><dd>Static · No execution</dd></div></dl>}
+        {formError && <p className="form-error" role="alert">{formError}</p>}
+        <button className="button button-primary intake-submit" disabled={submitting} type="submit">{submitting ? (ar ? 'جارٍ التحليل…' : 'Analyzing…') : (ar ? 'ابدأ التحليل' : 'Start analysis')}</button>
+      </form>
+      <section className="intake-support"><h2>{ar ? 'الملفات المقبولة الآن' : 'Accepted now'}</h2><div className="intake-formats">{FORMATS.filter(([, extension]) => accepted.has(extension)).map(([name, extension]) => <div key={extension}><strong>{name}</strong><code>{extension}</code></div>)}</div><p>{ar ? 'رقيب يفحص محتوى المشروع وبنيته، مش مجرد اسم الملف أو امتداده.' : 'Raqeeb checks project content and structure, not just the filename or extension.'}</p></section>
+      <section className="intake-support"><h2>{ar ? 'أهم المشاكل اللي بنركز عليها' : 'Focused security problems'}</h2><div className="intake-packs">{options.security_packs.map((pack) => <div key={pack.id}><strong>{pack.display_name}</strong><span>{packLabel(pack)}</span></div>)}</div><p>{ar ? 'حالة الدعم من الخادم؛ لم يثبت أي إصلاح أو إغلاق تلقائي بعد.' : 'Backend support status; no automatic repair or closure is claimed.'}</p></section>
+    </>}
+  </section></AppShell>;
 }

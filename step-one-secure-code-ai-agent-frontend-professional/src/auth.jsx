@@ -3,6 +3,7 @@ import {
   destroyAuthSession,
   getAuthSession,
   requestEmailChallenge,
+  signInWithPassword as passwordSignInRequest,
   verifyEmailChallenge,
 } from './api/endpoints';
 
@@ -22,6 +23,18 @@ export function AuthProvider({ children }) {
   const [emailVerified, setEmailVerified] = useState(true);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
   const [rememberDevice, setRememberDevice] = useState(false);
+  const [passwordConfigured, setPasswordConfigured] = useState(false);
+  const [passwordResetAllowed, setPasswordResetAllowed] = useState(false);
+
+  async function refreshSession() {
+    const result = await getAuthSession();
+    if (result.authenticated) {
+      setUser({ ...DEFAULT_USER, email: result.principal.subject });
+      setPasswordConfigured(Boolean(result.password_configured));
+      setPasswordResetAllowed(Boolean(result.password_reset_allowed));
+    }
+    return result;
+  }
 
   useEffect(() => {
     let active = true;
@@ -32,6 +45,8 @@ export function AuthProvider({ children }) {
             ...DEFAULT_USER,
             email: result.principal.subject,
           });
+          setPasswordConfigured(Boolean(result.password_configured));
+          setPasswordResetAllowed(Boolean(result.password_reset_allowed));
         }
       })
       .catch(() => {})
@@ -51,6 +66,9 @@ export function AuthProvider({ children }) {
     emailVerified,
     twoFactorEnabled,
     rememberDevice,
+    passwordConfigured,
+    passwordResetAllowed,
+    refreshSession,
     isAuthenticated: Boolean(user),
     async beginSignIn(email, options = {}) {
       const normalizedEmail = email.trim();
@@ -66,12 +84,18 @@ export function AuthProvider({ children }) {
       setUser({ ...DEFAULT_USER, email });
       setPendingEmail('');
       setChallengeId('');
+      await refreshSession();
+    },
+    async signInWithPassword(email, password) {
+      await passwordSignInRequest({ email: email.trim(), password });
+      await refreshSession();
     },
     register({ fullName, email }) {
       setPendingEmail(email.trim());
       setEmailVerified(false);
       setTwoFactorEnabled(false);
       setRememberDevice(false);
+      setPasswordResetAllowed(false);
       return { fullName: fullName.trim(), email: email.trim() };
     },
     verifyEmail() {
@@ -85,7 +109,7 @@ export function AuthProvider({ children }) {
       setRememberDevice(false);
       void destroyAuthSession().catch(() => {});
     },
-  }), [authReady, challengeId, emailVerified, pendingEmail, rememberDevice, twoFactorEnabled, user]);
+  }), [authReady, challengeId, emailVerified, passwordConfigured, passwordResetAllowed, pendingEmail, rememberDevice, twoFactorEnabled, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

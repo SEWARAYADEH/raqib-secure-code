@@ -1,5 +1,6 @@
 from pathlib import Path
 import secrets
+from datetime import timedelta
 
 from flask import Flask
 from flask_cors import CORS
@@ -10,7 +11,9 @@ from app.analysis_store import AnalysisStore
 from app.archive_routes import archive_api
 from app.email_verification import EmailChallengeService
 from app.email_verification_routes import email_verification_api
+from app.example_catalog import ExampleCatalog
 from app.http_security import register_http_security
+from app.password_auth import PasswordStore
 from app.routes import api
 
 
@@ -29,6 +32,23 @@ def create_app(config_overrides: dict | None = None):
     app.config["SESSION_COOKIE_SECURE"] = (
         app.config["APP_ENV"] == "production"
     )
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
+
+    auth_database_path = app.config.get("AUTH_DATABASE_PATH") or str(
+        Path(app.instance_path) / "auth_accounts.sqlite3"
+    )
+    app.extensions["password_store"] = PasswordStore(
+        database_path=auth_database_path,
+        rate_key=app.config["SECRET_KEY"],
+    )
+    example_database_path = app.config.get("EXAMPLE_DATABASE_PATH") or str(
+        Path(app.instance_path) / "examples.sqlite3"
+    )
+    examples = ExampleCatalog(example_database_path)
+    examples.seed_from_cases(
+        Path(__file__).resolve().parents[2] / "training" / "cases" / "sql_injection.json"
+    )
+    app.extensions["example_catalog"] = examples
 
     if app.config["ANALYSIS_STORE_ENABLED"]:
         database_path = app.config.get(
@@ -112,6 +132,10 @@ def _validate_security_config(app) -> None:
             )
         if not app.config["ANALYSIS_STORE_ENABLED"]:
             raise RuntimeError("Production requires immutable analysis storage.")
+        if app.config["ANALYSIS_LOCAL_ONLY"]:
+            raise RuntimeError(
+                "Production must disable local-only analysis access."
+            )
         if app.config["EMAIL_VERIFICATION_ENABLED"] and not all(
             app.config.get(name)
             for name in (

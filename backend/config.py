@@ -33,6 +33,8 @@ class Config:
     ANALYSIS_DATABASE_PATH = os.getenv(
         "ANALYSIS_DATABASE_PATH"
     )
+    AUTH_DATABASE_PATH = os.getenv("AUTH_DATABASE_PATH")
+    EXAMPLE_DATABASE_PATH = os.getenv("EXAMPLE_DATABASE_PATH")
     RECORD_INTEGRITY_KEY = os.getenv(
         "RECORD_INTEGRITY_KEY"
     )

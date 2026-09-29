@@ -183,3 +183,19 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 
 - Hostinger SMTP host/port/SSL, username, sender, and allowlisted recipient are present in the ignored local `backend/.env`. A login-only SMTP check still returns `535` (authentication refused), so the current blocker is the mailbox credential, not a missing hostname or IMAP setting. No test email or OTP was sent by this check.
 - The frontend's `EMAIL_DELIVERY_UNAVAILABLE` text now describes failed delivery rather than falsely asserting missing configuration. The tracked environment example and default SMTP host match Hostinger; no secret was added to Git.
+
+## 2026-09-29 sign-in and portfolio continuation
+
+- Replaced OTP-on-every-visit with password sign-in after an email-verified first visit. Passwords are scrypt-hashed in an ignored local SQLite file, login attempts are throttled, and a seven-day signed session is restored across reloads. Email verification is still needed for first setup or a forgotten password. SMTP authentication remains blocked by Hostinger error 535, so real first-time enrollment is not yet operational.
+- Login now has explicit visible labels and password/email-code tabs. Successful first verification goes to Account and security for password setup. Legacy mock signup/reset screens redirect to the real email-code flow.
+- Added a dependency-free corporate portfolio under `public/portfolio/index.html`; `/` redirects there. Light/dark themes, smart header, responsive service cards, horizontal process steps, and honest feature states were checked in the local browser.
+- Added a SQLite-backed catalog of five trusted synthetic SQL cases. Startup analyzes these versioned fixtures once, checks expected counts, and exposes only summary metadata through `GET /api/v1/examples`; user uploads are excluded. The local browser showed all five cases.
+- Verification: 174 backend tests and the frontend production build passed before final commit. The portfolio works at `/portfolio/index.html`; the explicit filename avoids Vite's root SPA fallback.
+
+## 2026-09-29 focused product UX continuation
+
+- The first public screen now states the concrete input (.py/.js/.jsx/ZIP), static trace purpose, and evidence limit. The next sections show five focused packs with statuses fetched from `/api/v1/analysis/options`, accepted formats from that same contract, and nine workflow stages whose availability also comes from the backend. Duplicate text-heavy About/Services sections were removed; the existing hero/stepper/footer structure remains.
+- Updated the existing New Analysis screen to prioritize Code File vs ZIP Project, a single file picker, pre-submit facts (name, size, scope, preliminary extension hint labeled as such), and one Start Analysis action. Backend parsing remains the authority for actual language and structure.
+- Updated the real Analysis Result page with a compact project summary and direct candidate rows before collapsible technical evidence. Finding list/detail routes now read the owner-scoped HMAC-verified stored analysis, replacing the old mock finding data on those two routes. Their WHERE/WHY/TRACE/VERIFICATION/ROOT CAUSE/FIX/DIFF/TESTS/RE-VERIFY/EVIDENCE sections explicitly mark unavailable evidence.
+- Browser QA: Chrome rendered the desktop and phone portfolio without horizontal page overflow, and displayed the correct live pack states, four accepted formats, nine stages, and five seeded examples. The frontend build, its two report tests, and 174 backend tests passed. Production startup now rejects `ANALYSIS_LOCAL_ONLY=true` so a reverse proxy cannot accidentally expose the development access path.
+- Authentication safety: removing an address from `VERIFICATION_ALLOWED_EMAILS` now invalidates its existing signed session as well as password sign-in. This is covered by a regression test.

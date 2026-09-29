@@ -45,7 +45,7 @@ export default function PublicHeader() {
         <button className="button button-secondary compact-button" onClick={() => navigate('/login')} type="button">
           {ar ? 'تسجيل الدخول' : 'Sign in'}
         </button>
-        <button className="button button-primary compact-button" onClick={() => navigate('/create-account')} type="button">
+        <button className="button button-primary compact-button" onClick={() => navigate('/login?mode=code')} type="button">
           {ar ? 'ابدأ تحليلًا آمنًا' : 'Start secure analysis'}
         </button>
       </div>

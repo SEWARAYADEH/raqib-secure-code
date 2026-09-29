@@ -55,6 +55,22 @@ export function verifyEmailChallenge({ challengeId, code }) {
   });
 }
 
+export function signInWithPassword({ email, password }) {
+  return apiRequest('/api/v1/auth/password', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+export function setAccountPassword({ password, currentPassword }) {
+  return apiRequest('/api/v1/auth/password/setup', {
+    method: 'POST',
+    body: JSON.stringify({ password, current_password: currentPassword }),
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 export function getAuthSession() {
   return apiRequest('/api/v1/auth/session');
 }

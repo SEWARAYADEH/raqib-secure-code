@@ -69,6 +69,8 @@ def resolve_analysis_principal() -> Principal | None:
             and isinstance(scopes, list)
             and all(isinstance(scope, str) for scope in scopes)
         ):
+            if not email_address_allowed(subject):
+                return None
             return Principal(
                 subject=subject,
                 role=role,
@@ -115,3 +117,13 @@ def trusted_frontend_origin() -> bool:
         if item.strip()
     }
     return origin in allowed
+
+
+def email_address_allowed(email: str) -> bool:
+    """Apply the current email allowlist to restored signed sessions too."""
+    allowed = {
+        address.strip().casefold()
+        for address in current_app.config["VERIFICATION_ALLOWED_EMAILS"].split(",")
+        if address.strip()
+    }
+    return isinstance(email, str) and email.strip().casefold() in allowed

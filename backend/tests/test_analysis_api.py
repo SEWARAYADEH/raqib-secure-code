@@ -203,6 +203,22 @@ def test_production_requires_immutable_storage():
         )
 
 
+def test_production_rejects_local_analysis_bypass():
+    with pytest.raises(RuntimeError, match="disable local-only analysis access"):
+        create_app(
+            {
+                "APP_ENV": "production",
+                "SECRET_KEY": "s" * 40,
+                "ANALYSIS_API_TOKEN": "t" * 40,
+                "RECORD_INTEGRITY_KEY": "i" * 40,
+                "EMAIL_VERIFICATION_HMAC_KEY": "e" * 40,
+                "ANALYSIS_STORE_ENABLED": True,
+                "ANALYSIS_LOCAL_ONLY": True,
+                "EMAIL_VERIFICATION_ENABLED": False,
+            }
+        )
+
+
 def test_analysis_options_are_real_and_safety_bounded(client):
     response = client.get("/api/v1/analysis/options")
 
@@ -224,6 +240,10 @@ def test_analysis_options_are_real_and_safety_bounded(client):
     ]
     assert packs["SQL_INJECTION"]["status"] == "PARTIAL_STATIC_CANDIDATES"
     assert packs["PATH_TRAVERSAL"]["status"] == "NOT_IMPLEMENTED"
+    stages = {item["id"]: item["status"] for item in payload["workflow_stages"]}
+    assert stages["UPLOAD"] == "AVAILABLE"
+    assert stages["VERIFY"] == "NOT_AVAILABLE"
+    assert stages["EVIDENCE"] == "NOT_AVAILABLE"
 
     safety = payload["safety"]
     assert safety["uploaded_code_execution"] is False

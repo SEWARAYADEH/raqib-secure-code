@@ -50,6 +50,12 @@ def health_check():
     )
 
 
+@api.get("/v1/examples")
+def public_examples():
+    """Expose only synthetic evaluation summaries, never uploaded user code."""
+    return jsonify({"examples": current_app.extensions["example_catalog"].list_examples()})
+
+
 @api.get("/v1/analysis/options")
 def analysis_options():
     return jsonify(
@@ -75,6 +81,17 @@ def analysis_options():
             ],
             "project_source_extensions": sorted(SOURCE_EXTENSIONS),
             "security_packs": pack_coverage(),
+            "workflow_stages": [
+                {"id": "UPLOAD", "status": "AVAILABLE"},
+                {"id": "UNDERSTAND", "status": "PARTIAL"},
+                {"id": "TRACE", "status": "PARTIAL"},
+                {"id": "DETECT", "status": "PARTIAL"},
+                {"id": "VERIFY", "status": "NOT_AVAILABLE"},
+                {"id": "FIX", "status": "NOT_AVAILABLE"},
+                {"id": "TEST", "status": "NOT_AVAILABLE"},
+                {"id": "RE_VERIFY", "status": "NOT_AVAILABLE"},
+                {"id": "EVIDENCE", "status": "NOT_AVAILABLE"},
+            ],
             "safety": {
                 "uploaded_code_execution": False,
                 "original_overwritten": False,

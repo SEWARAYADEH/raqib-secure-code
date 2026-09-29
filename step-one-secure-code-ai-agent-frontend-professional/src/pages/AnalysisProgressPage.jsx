@@ -42,12 +42,47 @@ function summarizeFile(result, ar) {
   };
 }
 
+function resultCandidates(result) {
+  return (result.files ?? [result]).flatMap((file) =>
+    (file.security_analysis?.candidates ?? []).map((finding) => ({
+      finding,
+      path: file.artifact?.relative_path ?? file.artifact?.filename ?? 'Unknown',
+    }))
+  );
+}
+
+function ResultOverview({ payload, ar, navigate }) {
+  const result = payload.result;
+  const rawFiles = result.files ?? [result];
+  const project = result.project_understanding;
+  const candidates = resultCandidates(result);
+  const languages = [...new Set(rawFiles.map((file) => file.language?.candidate).filter(Boolean))];
+  const frameworks = [...new Set((project?.frameworks ?? rawFiles.flatMap((file) => file.application_understanding?.frameworks ?? [])).map((item) => `${item.name} (${item.status})`))];
+  const values = [
+    [ar ? 'المشروع' : 'Project', payload.record?.artifact_name ?? rawFiles[0]?.artifact?.filename ?? 'Unknown'],
+    [ar ? 'اللغات' : 'Languages', languages.join(', ') || 'Unknown'],
+    [ar ? 'الإطار' : 'Framework', frameworks.join(', ') || 'Unresolved'],
+    [ar ? 'الملفات' : 'Files', project?.counts?.files ?? rawFiles.length],
+    [ar ? 'المسارات' : 'Routes', project?.counts?.routes ?? rawFiles.reduce((sum, file) => sum + (file.application_understanding?.counts?.routes ?? 0), 0)],
+    [ar ? 'الدوال' : 'Functions', rawFiles.reduce((sum, file) => sum + (file.structure?.counts?.functions ?? 0), 0)],
+    [ar ? 'مرشحات أمنية' : 'Security candidates', candidates.length],
+  ];
+  const analysisId = payload.record?.persisted ? payload.record.analysis_id : null;
+  return <>
+    <section className="result-overview" aria-label={ar ? 'ملخص التحليل' : 'Analysis summary'}>{values.map(([label, value]) => <div key={label}><span>{label}</span><strong dir="auto">{value}</strong></div>)}</section>
+    <section className="result-findings"><h2>{ar ? 'المشاكل المكتشفة' : 'Detected problems'}</h2><p>{ar ? 'هذه مرشحات ساكنة، وليست ثغرات مثبتة أو إصلاحات مغلقة.' : 'These are static candidates, not verified vulnerabilities or closed repairs.'}</p>
+      {candidates.length ? <div className="result-finding-list">{candidates.map(({ finding, path }) => <article key={finding.id}><div><strong>{finding.pack_assessment?.pack?.replaceAll('_', ' ') ?? finding.sink?.category ?? 'Security candidate'}</strong><small dir="ltr">{path} · {finding.scope?.function ?? 'Unresolved'}() · Line {finding.sink?.start_line ?? 'Unknown'}</small></div><span className="candidate-state">CANDIDATE</span>{analysisId && <button className="button button-ghost compact-button" onClick={() => navigate(`/projects/${encodeURIComponent(analysisId)}/findings/${encodeURIComponent(finding.id)}`)} type="button">{ar ? 'افتح الدليل' : 'Inspect evidence'}</button>}</article>)}</div> : <div className="analysis-empty">{ar ? 'لا توجد مرشحات ضمن النطاق المدعوم. هذا لا يثبت خلو المشروع من الثغرات.' : 'No candidates in supported coverage. This does not prove the project is safe.'}</div>}
+      {analysisId && candidates.length > 1 && <button className="button button-ghost" onClick={() => navigate(`/projects/${encodeURIComponent(analysisId)}/findings`)} type="button">{ar ? 'عرض كل المشاكل المكتشفة' : 'View all detected problems'}</button>}
+    </section>
+  </>;
+}
+
 function AnalysisFileCard({ file, ar }) {
   return (
     <article className="analysis-result-card">
       <div className="analysis-result-head">
         <div><span className="eyebrow">{file.language}</span><h2><bdi dir="ltr">{file.name}</bdi></h2></div>
-        <StatusBadge tone={file.syntaxValid ? 'success' : 'danger'}>
+        <StatusBadge tone={file.syntaxValid ? 'info' : 'neutral'}>
           {file.syntaxValid ? (ar ? 'Syntax صالح' : 'Valid syntax') : (ar ? 'Syntax غير صالح' : 'Invalid syntax')}
         </StatusBadge>
       </div>
@@ -254,8 +289,10 @@ export default function AnalysisProgressPage() {
       <section className="progress-page analysis-results-page">
         <div className="page-title-row compact">
           <div><span className="eyebrow">{ar ? 'نتيجة المحرك الحقيقي' : 'Live engine result'}</span><h1>{ar ? 'اكتمل التحليل الساكن' : 'Static analysis complete'}</h1><p>{ar ? 'النتائج أدلة هندسية مرصودة. لا يعتبر النظام أي مسار ثغرة أو إثبات استغلال في هذه المرحلة.' : 'Results are observed engineering evidence. No path is treated as a vulnerability or exploit proof at this stage.'}</p></div>
-          <StatusBadge tone={totalPaths ? 'warning' : 'success'}>{totalPaths} {ar ? 'مسار مرصود' : 'observed paths'}</StatusBadge>
+          <StatusBadge tone={totalPaths ? 'warning' : 'neutral'}>{totalPaths} {ar ? 'مسار مرصود' : 'observed paths'}</StatusBadge>
         </div>
+        <ResultOverview ar={ar} navigate={navigate} payload={payload} />
+        <details className="result-technical-details"><summary>{ar ? 'افتح الأدلة التقنية التفصيلية' : 'Open detailed technical evidence'}</summary>
         <div className="analysis-proof-strip">
           <div><span>{ar ? 'معرّف التحليل' : 'Analysis ID'}</span><strong className="technical-value">{payload.record?.analysis_id}</strong></div>
           <div><span>{ar ? 'سياسة التنفيذ' : 'Execution policy'}</span><strong>NEVER_EXECUTE_SOURCE</strong></div>
@@ -273,6 +310,7 @@ export default function AnalysisProgressPage() {
         </section>
         <ProjectSummary ar={ar} project={payload.result.project_understanding} />
         <div className="analysis-result-list">{files.map((file) => <AnalysisFileCard ar={ar} file={file} key={file.name} />)}</div>
+        </details>
         <div className="progress-actions">
           {persisted && payload.record?.analysis_id ? (
             <button className="button button-secondary" onClick={() => navigate(`/projects/${encodeURIComponent(payload.record.analysis_id)}/report`)} type="button"><Icon name="report" />{ar ? 'التقرير الحقيقي' : 'Evidence report'}</button>

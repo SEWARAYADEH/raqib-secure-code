@@ -7,7 +7,9 @@ Raqeeb accepts source files or ZIP projects, builds evidence-backed structure an
 - Safe bounded intake for a single file or ZIP project.
 - Python and JavaScript structure, framework routes, application relationships, and conservative data-flow observations. Cross-file call edges cover narrow, statically evidenced Python `from ... import ...` and JavaScript named-import function calls; cross-file data flow is unresolved.
 - Candidate findings and an explicit verification lifecycle. Exploit replay and automatic patching remain blocked until an isolated execution environment is available.
-- Signed user sessions through short-lived email codes. SMTP credentials are required to deliver a real code.
+- Signed user sessions through a short-lived email code for first access or password reset, followed by a server-verified password for normal sign-in. Session cookies last up to seven days. SMTP credentials are required to deliver a real code.
+- A standalone HTML/CSS/vanilla-JavaScript portfolio at `/portfolio/index.html` with light/dark mode, process steps, and five synthetic SQL evaluation results read from SQLite. These results are static-analysis candidates, not proven exploits.
+- The public page and the focused upload flow read current formats, pack states, and stage availability from the backend options contract. SQL Injection and Command Injection expose partial static analysis; Path Traversal, XSS, and Broken Authorization / IDOR are labeled in development. Saved finding details show only real stored evidence and mark unavailable verification/repair stages plainly.
 - Optional Codex advisor, disabled by default. Its output cannot verify closure.
 
 ## Local development
@@ -29,7 +31,9 @@ npm ci
 npm run dev
 ```
 
-Run the backend tests with `.\.venv\Scripts\python.exe -m pytest -q` from `backend`, and the frontend build with `npm run build` from the frontend directory.
+Run the backend tests with `.\.venv\Scripts\python.exe -m pytest -q` from `backend`, then `npm test` and `npm run build` from the frontend directory. Open `http://127.0.0.1:5173/` for the portfolio and `/login` for the workbench. Use the same hostname consistently so the browser reuses its session cookie.
+
+The first successful email verification opens Account and security, where the user can create a password. Later visits default to password sign-in without a fresh email code. A lost password can be reset only after a new verified email challenge. Password hashes, attempt throttling, and the five synthetic example summaries live in ignored local SQLite files. Uploaded user code is never published through the examples endpoint.
 
 ## Deployment gate
 
