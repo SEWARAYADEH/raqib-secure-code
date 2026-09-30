@@ -1,15 +1,4 @@
-import { apiRequest, mockRequest } from './client';
-import {
-  mockAnalysisProgress,
-  mockFindings,
-  mockLiveOperation,
-  mockReport,
-  mockScanSummary,
-  mockTechnologyProfile,
-  mockWorkspaceFiles,
-  projectPassport,
-  workflowStages,
-} from '../mock/data';
+import { apiRequest } from './client';
 
 export const getProjects = async () => {
   const response = await apiRequest('/api/v1/analyses');
@@ -17,7 +6,6 @@ export const getProjects = async () => {
 };
 
 export const getAnalysisOptions = () => apiRequest('/api/v1/analysis/options');
-export const getAnalysisProgress = () => mockRequest(mockAnalysisProgress);
 
 export function createAnalysis({ file, scope }) {
   const body = new FormData();
@@ -83,17 +71,4 @@ export function destroyAuthSession() {
   });
 }
 
-export const getWorkbench = () => {
-  return mockRequest({
-    passport: projectPassport,
-    files: mockWorkspaceFiles,
-    findings: mockFindings,
-    workflow: workflowStages,
-    technology: mockTechnologyProfile,
-    scan: mockScanSummary,
-    liveOperation: mockLiveOperation,
-  });
-};
-
-export const getReport = () => mockRequest(mockReport);
 export const getConfigurationStatus = () => apiRequest('/api/v1/configuration/status');

@@ -102,11 +102,45 @@ def test_analysis_list_is_owner_scoped_and_metadata_only(stored_app):
             "scope": "FILE",
             "language": "Python",
             "project_type": None,
+            "files_analyzed": 1,
+            "candidate_count": 0,
+            "observed_paths": 0,
             "integrity": "HMAC-SHA256",
         }
     ]
     assert other.status_code == 200
     assert other.get_json()["analyses"] == []
+
+
+def test_analysis_list_counts_actual_candidate_evidence(stored_app):
+    client = stored_app.test_client()
+    source = b'''from flask import request
+import os
+
+def run():
+    command = request.args.get("command")
+    os.system(command)
+'''
+    created = client.post(
+        "/api/v1/analysis/source",
+        data={"file": (io.BytesIO(source), "route.py")},
+        content_type="multipart/form-data",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        environ_base={"REMOTE_ADDR": "203.0.113.10"},
+    )
+    assert created.status_code == 200
+
+    listed = client.get(
+        "/api/v1/analyses",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        environ_base={"REMOTE_ADDR": "203.0.113.10"},
+    )
+    assert listed.status_code == 200
+    summary = listed.get_json()["analyses"][0]
+    assert summary["files_analyzed"] == 1
+    assert summary["observed_paths"] == 1
+    assert summary["candidate_count"] == 1
+    assert "source_text" not in summary
 
 
 def test_analysis_list_rejects_tampered_record(stored_app):

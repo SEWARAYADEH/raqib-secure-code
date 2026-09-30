@@ -6,7 +6,9 @@ import { useLanguage } from '../i18n';
 import Icon from './Icon';
 
 function projectIdFromPath(pathname) {
-  return pathname.match(/^\/projects\/([^/]+)/)?.[1] ?? null;
+  return pathname.match(/^\/projects\/([^/]+)/)?.[1]
+    ?? pathname.match(/^\/analysis\/progress\/([^/]+)/)?.[1]
+    ?? null;
 }
 
 export default function AppShell({ children }) {
@@ -26,6 +28,8 @@ export default function AppShell({ children }) {
   const projectItems = projectId
     ? [
         { key: 'analysis', icon: 'scan', to: `/analysis/progress/${projectId}`, label: ar ? 'التحليل' : 'Analysis' },
+        { key: 'workbench', icon: 'code', to: `/projects/${projectId}/workbench`, label: ar ? 'بنية المشروع' : 'Structure' },
+        { key: 'findings', icon: 'findings', to: `/projects/${projectId}/findings`, label: ar ? 'المرشحات' : 'Candidates' },
         { key: 'report', icon: 'report', to: `/projects/${projectId}/report`, label: ar ? 'التقرير' : 'Report' },
       ]
     : [];
@@ -90,7 +94,7 @@ export default function AppShell({ children }) {
 
         <div className="sidebar-account">
           <button className="account-summary" onClick={() => { navigate('/account'); closeMobile(); }} type="button">
-            <span className="account-avatar">DE</span>
+            <span className="account-avatar">{user?.name?.charAt(0) ?? user?.email?.charAt(0)?.toUpperCase() ?? 'ر'}</span>
             <span>
               <strong>{user?.name ?? (ar ? 'مستخدم موثّق' : 'Verified user')}</strong>
               <small dir="ltr">{user?.email ?? '—'}</small>
@@ -112,14 +116,14 @@ export default function AppShell({ children }) {
             <div className="topbar-title">
               <span className="topbar-dot" />
               <div>
-                <strong>{projectId ? (ar ? 'مساحة المشروع' : 'Project workspace') : 'SecClosure'}</strong>
-                <small>{ar ? 'فهم التطبيق والتحليل الساكن متصلان · حالة كل مرحلة معروضة كما هي' : 'Application understanding and static analysis are live · every stage reports its real status'}</small>
+                <strong>{projectId ? (ar ? 'مساحة المشروع' : 'Project workspace') : (ar ? 'رقيب' : 'Raqeeb')}</strong>
+                <small>{ar ? 'فهم التطبيق · تتبّع الدليل · حالة واضحة' : 'Application understanding · evidence trace · honest status'}</small>
               </div>
             </div>
           </div>
 
           <div className="topbar-actions">
-            <span className="mock-label">{ar ? 'التحليل مباشر' : 'Live analysis'}</span>
+            <span className="mock-label">{ar ? 'دليل ساكن' : 'Static evidence'}</span>
             <button className="icon-button text-button" onClick={toggleLanguage} type="button">
               <Icon name="language" size={17} />
               {t('language')}

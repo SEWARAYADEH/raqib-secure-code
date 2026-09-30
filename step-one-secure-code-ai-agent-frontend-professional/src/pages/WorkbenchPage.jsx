@@ -1,311 +1,125 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getWorkbench } from '../api/endpoints';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getStoredAnalysis } from '../api/endpoints';
 import AppShell from '../components/AppShell';
 import AsyncState from '../components/AsyncState';
-import Icon from '../components/Icon';
-import ProjectPassport from '../components/ProjectPassport';
-import WorkbenchCodePane from '../components/WorkbenchCodePane';
-import WorkbenchExplorer from '../components/WorkbenchExplorer';
-import WorkbenchInspector from '../components/WorkbenchInspector';
-import WorkflowBar from '../components/WorkflowBar';
+import StatusBadge from '../components/StatusBadge';
 import useAsyncResource from '../hooks/useAsyncResource';
 import { useLanguage } from '../i18n';
 
-function stageOperation(stage, liveOperation, ar) {
-  const map = {
-    fingerprint: {
-      title: ar ? 'تحديد بصمة المشروع' : 'Building the project fingerprint',
-      action: ar
-        ? 'تحديد اللغة والإطار وقاعدة البيانات والبنية ونقاط الدخول.'
-        : 'Detecting language, framework, database, architecture, and entry points.',
-      discovery: ar
-        ? 'تم تحديد Python / Flask وبنية تطبيق ويب طبقية.'
-        : 'Python / Flask and a layered web architecture are identified.',
-      why: ar
-        ? 'الفحص الصحيح يبدأ بفهم نوع الكود وسياقه قبل إصدار أي حكم أمني.'
-        : 'A meaningful security review starts by understanding code type and context.',
-    },
-    understand: {
-      title: ar ? 'فهم وظيفة الكود' : 'Understanding what the code does',
-      action: ar
-        ? 'ربط الملفات بالدوال ووظيفة كل جزء قبل الحكم على المخاطر.'
-        : 'Connecting files, functions, and purpose before judging security risk.',
-      discovery: ar
-        ? 'تم ربط Route المستخدم بخدمة قراءة بيانات المستخدم.'
-        : 'A user route is linked to the user retrieval service.',
-      why: ar
-        ? 'السطر نفسه قد يكون آمنًا أو خطيرًا حسب المسار والصلاحيات.'
-        : 'The same line can be safe or risky depending on flow and authorization context.',
-    },
-    scan: {
-      title: ar ? 'مراجعة نتائج الـScanner' : 'Reviewing scanner coverage',
-      action: ar
-        ? 'عرض التغطية والقواعد والنتائج وربطها بالملفات والدوال.'
-        : 'Showing coverage, rules, findings, and their mapping to files and functions.',
-      discovery: ar
-        ? 'ثلاث نتائج تحتاج مراجعة ضمن التغطية الحالية.'
-        : 'Three findings require review within the current coverage.',
-      why: ar
-        ? 'الـFinding لا تبقى Alert منفصلة؛ يجب ربطها بالكود والسياق.'
-        : 'A finding should not stay isolated; it must be tied to code and context.',
-    },
-    investigate: ar
-      ? {
-          title: 'تتبع المعرّف عبر حدود الصلاحيات',
-          action: 'تتبع user_id من مسار Flask إلى UserService ثم طبقة المستودع.',
-          discovery: 'المصادقة موجودة، لكن التحقق من ملكية المورد غير ظاهر في المسار.',
-          why: 'المصادقة تثبت الهوية، لكنها لا تثبت حق الوصول إلى مورد مستخدم آخر.',
-        }
-      : liveOperation,
-    transform: {
-      title: ar ? 'تحويل الضعف إلى Secure Candidate' : 'Building a secure candidate',
-      action: ar
-        ? 'عرض Root Cause والكود الضعيف والنسخة المقترحة بشكل قابل للمراجعة.'
-        : 'Showing root cause, weak code, and the proposed candidate in a reviewable diff.',
-      discovery: ar
-        ? 'التعديل المقترح يضيف قرار Authorization قبل إرجاع المورد.'
-        : 'The proposed change adds an authorization decision before returning the resource.',
-      why: ar
-        ? 'الإصلاح يجب أن يعالج السبب الجذري، وليس فقط نتيجة الـScanner.'
-        : 'A fix must address the root cause, not merely silence a scanner result.',
-    },
-    verify: {
-      title: ar ? 'إعادة الفحص وإثبات النتيجة' : 'Re-scanning and proving the result',
-      action: ar
-        ? 'مراجعة الاختبار الوظيفي وReplay وRe-scan وRe-trace.'
-        : 'Reviewing functional test, replay, re-scan, and re-trace evidence.',
-      discovery: ar
-        ? 'قرار الإغلاق يعتمد على Evidence وليس على اقتراح AI.'
-        : 'Closure depends on evidence, not on the AI proposal.',
-      why: ar
-        ? 'التحسن الأمني يجب أن يكون قابلًا للمراجعة وإعادة الاختبار.'
-        : 'Security improvement must be reviewable and reproducible.',
-    },
-    report: {
-      title: ar ? 'تجميع التقرير الأمني' : 'Preparing the security report',
-      action: ar
-        ? 'تنظيم النتائج والتغطية والإصلاحات والأدلة في تقرير واضح.'
-        : 'Organizing findings, coverage, remediation, and evidence into a clear report.',
-      discovery: ar
-        ? 'التقرير يوضح ما تم إصلاحه وما بقي وما لم يتم إثباته.'
-        : 'The report separates remediated, remaining, and not-yet-proven items.',
-      why: ar
-        ? 'الخبير يحتاج سجلًا يمكن لشخص ثالث مراجعته.'
-        : 'Experts need a record that a third party can review.',
-    },
-  };
+function filePath(file) {
+  return file.artifact?.relative_path ?? file.artifact?.filename ?? 'Unknown';
+}
 
-  return map[stage] ?? map.fingerprint;
+function fileCandidates(file) {
+  return file.security_analysis?.candidates ?? [];
+}
+
+function EvidenceList({ title, items, render, empty }) {
+  return (
+    <section className="workspace-evidence-list">
+      <h3>{title} <span>{items.length}</span></h3>
+      {items.length ? (
+        <ul>{items.map((item, index) => <li key={`${title}-${index}`}>{render(item)}</li>)}</ul>
+      ) : <p>{empty}</p>}
+    </section>
+  );
 }
 
 export default function WorkbenchPage() {
+  const { projectId } = useParams();
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ar = language === 'ar';
-  const { data, error, loading, reload } = useAsyncResource(getWorkbench, []);
-  const [selectedFileId, setSelectedFileId] = useState('users-route');
-  const [selectedFindingId, setSelectedFindingId] = useState('SC-001');
-  const [selectedFunction, setSelectedFunction] = useState('get_user');
-  const [zoom, setZoom] = useState(1);
-  const [showExplorer, setShowExplorer] = useState(true);
-  const [showInspector, setShowInspector] = useState(true);
-  const [workflowId, setWorkflowId] = useState('fingerprint');
-  const [fileSearch, setFileSearch] = useState('');
-  const [fileFilter, setFileFilter] = useState('all');
-
-  const file = useMemo(() => {
-    if (!data?.files?.length) return null;
-    return data.files.find((item) => item.id === selectedFileId) ?? data.files[0];
-  }, [data, selectedFileId]);
-
-  const finding = useMemo(() => {
-    if (!data?.findings?.length || !file) return null;
-    const fileFindings = data.findings.filter((item) => item.fileId === file.id);
-    return fileFindings.find((item) => item.id === selectedFindingId) ?? fileFindings[0] ?? null;
-  }, [data, file, selectedFindingId]);
-
-  const filteredFiles = useMemo(() => {
-    if (!data?.files) return [];
-    const query = fileSearch.trim().toLowerCase();
-
-    return data.files.filter((item) => {
-      const matchesQuery = !query
-        || item.name.toLowerCase().includes(query)
-        || item.path.toLowerCase().includes(query);
-      const matchesStatus = fileFilter === 'all'
-        || (fileFilter === 'issues' && item.status !== 'safe')
-        || (fileFilter === 'safe' && item.status === 'safe');
-      return matchesQuery && matchesStatus;
-    });
-  }, [data, fileFilter, fileSearch]);
-
-  const codeLines = file?.code.split('\n') ?? [];
-  const operation = stageOperation(workflowId, data?.liveOperation, ar);
-  const stageIndex = data?.workflow.findIndex((stage) => stage.id === workflowId) ?? 0;
-
-  const selectFile = (nextFile) => {
-    setSelectedFileId(nextFile.id);
-    const nextFinding = data.findings.find((item) => item.fileId === nextFile.id);
-    setSelectedFindingId(nextFinding?.id ?? '');
-    setSelectedFunction(nextFile.functions[0]?.name ?? '');
-    if (stageIndex > 1) setWorkflowId('understand');
-  };
-
-  const selectFunction = (fn) => {
-    setSelectedFunction(fn.name);
-    const fnFinding = data.findings.find(
-      (item) => item.fileId === file.id && item.function === fn.name,
-    );
-    setSelectedFindingId(fnFinding?.id ?? '');
-  };
-
-  const chooseFinding = (item) => {
-    setSelectedFileId(item.fileId);
-    setSelectedFindingId(item.id);
-    setSelectedFunction(item.function ?? '');
-    setWorkflowId('investigate');
-  };
-
-  const focusCode = () => {
-    if (!showExplorer && !showInspector) {
-      setShowExplorer(true);
-      setShowInspector(true);
-      return;
-    }
-    setShowExplorer(false);
-    setShowInspector(false);
-  };
-
-  const gridClass = [
-    'secure-workbench',
-    showExplorer ? '' : 'without-explorer',
-    showInspector ? '' : 'without-inspector',
-  ].filter(Boolean).join(' ');
+  const [selectedPath, setSelectedPath] = useState(null);
+  const { data, error, loading, reload } = useAsyncResource(
+    () => getStoredAnalysis(projectId), [projectId],
+  );
+  const result = data?.record?.result;
+  const files = result?.files ?? (result ? [result] : []);
+  const file = files.find((item) => filePath(item) === selectedPath) ?? files[0];
+  const candidates = file ? fileCandidates(file) : [];
+  const structure = file?.structure ?? {};
+  const understanding = file?.application_understanding ?? {};
+  const paths = [
+    ...(file?.data_flow?.paths ?? []),
+    ...(file?.inter_function_data_flow?.paths ?? []),
+  ];
 
   return (
     <AppShell>
-      <AsyncState
-        error={error}
-        loading={loading}
-        loadingLabel={ar ? 'تحميل مساحة العمل…' : 'Loading secure workbench…'}
-        onRetry={reload}
-      />
-
-      {!loading && !error && data && file ? (
-        <>
-          <ProjectPassport project={data.passport} />
-
-          <section className="workbench-commandbar">
-            <WorkflowBar
-              currentId={workflowId}
-              onSelect={setWorkflowId}
-              stages={data.workflow}
-            />
-            <div className="command-actions">
-              <button
-                aria-pressed={showExplorer}
-                className={`icon-button${showExplorer ? ' active' : ''}`}
-                onClick={() => setShowExplorer((value) => !value)}
-                title={ar ? 'إظهار أو إخفاء الملفات' : 'Toggle project explorer'}
-                type="button"
-              >
-                <Icon name="projects" />
-              </button>
-              <button
-                className="icon-button"
-                onClick={() => setZoom((value) => Math.max(0.8, value - 0.1))}
-                title={ar ? 'تصغير الكود' : 'Zoom out'}
-                type="button"
-              >
-                <Icon name="zoomOut" />
-              </button>
-              <span className="zoom-value">{Math.round(zoom * 100)}%</span>
-              <button
-                className="icon-button"
-                onClick={() => setZoom((value) => Math.min(1.5, value + 0.1))}
-                title={ar ? 'تكبير الكود' : 'Zoom in'}
-                type="button"
-              >
-                <Icon name="zoomIn" />
-              </button>
-              <button
-                className="icon-button"
-                onClick={focusCode}
-                title={ar ? 'وضع التركيز' : 'Focus code'}
-                type="button"
-              >
-                <Icon name="expand" />
-              </button>
-              <button
-                aria-pressed={showInspector}
-                className={`icon-button${showInspector ? ' active' : ''}`}
-                onClick={() => setShowInspector((value) => !value)}
-                title={ar ? 'إظهار أو إخفاء Inspector' : 'Toggle inspector'}
-                type="button"
-              >
-                <Icon name="panel" />
-              </button>
+      <section className="workspace-page">
+        <header className="page-title-row">
+          <div>
+            <span className="eyebrow">{ar ? 'مساحة أدلة حقيقية' : 'Saved evidence workspace'}</span>
+            <h1>{ar ? 'بنية المشروع' : 'Project structure'}</h1>
+            <p>{ar
+              ? 'استكشف الملفات والدوال والمسارات والمرشحات من التحليل المحفوظ. لا يُحفظ الكود الخام في السجل.'
+              : 'Explore files, functions, paths, and candidates from the saved analysis. Raw source is not retained.'}</p>
+          </div>
+          <button className="button button-secondary" onClick={() => navigate(`/analysis/progress/${encodeURIComponent(projectId)}`)} type="button">
+            {ar ? 'ملخص التحليل' : 'Analysis summary'}
+          </button>
+        </header>
+        <AsyncState error={error} loading={loading} loadingLabel={ar ? 'تحميل أدلة المشروع…' : 'Loading project evidence…'} onRetry={reload} />
+        {!loading && !error && result && !files.length && (
+          <div className="analysis-empty">{ar ? 'لا توجد ملفات محللة في هذا السجل.' : 'No analyzed files in this record.'}</div>
+        )}
+        {!loading && !error && file && (
+          <>
+            <div className="workspace-summary" aria-label={ar ? 'ملخص المشروع' : 'Project summary'}>
+              <div><span>{ar ? 'الأصل' : 'Artifact'}</span><strong dir="auto">{result.artifact?.filename ?? 'Unknown'}</strong></div>
+              <div><span>{ar ? 'الملفات' : 'Files'}</span><strong>{files.length}</strong></div>
+              <div><span>{ar ? 'مرشحات أمنية' : 'Candidates'}</span><strong>{files.reduce((sum, item) => sum + fileCandidates(item).length, 0)}</strong></div>
+              <div><span>{ar ? 'سلامة السجل' : 'Record integrity'}</span><strong>{data.record.integrity}</strong></div>
             </div>
-          </section>
-
-          <section className="live-operation">
-            <div className="live-operation-icon"><Icon name="robot" /></div>
-            <div className="live-operation-main">
-              <span className="eyebrow">RAQEEB · <bdi dir="ltr">{workflowId.toUpperCase()}</bdi></span>
-              <strong>{operation.title}</strong>
-              <p>{operation.action}</p>
+            <div className="workspace-layout">
+              <aside className="workspace-files" aria-label={ar ? 'ملفات المشروع' : 'Project files'}>
+                <h2>{ar ? 'الملفات المحللة' : 'Analyzed files'}</h2>
+                {files.map((item) => (
+                  <button
+                    aria-current={item === file ? 'true' : undefined}
+                    className={item === file ? 'active' : ''}
+                    key={filePath(item)}
+                    onClick={() => setSelectedPath(filePath(item))}
+                    type="button"
+                  >
+                    <span dir="ltr">{filePath(item)}</span>
+                    <small>{item.language?.candidate ?? 'Unknown'} · {fileCandidates(item).length} {ar ? 'مرشح' : 'candidates'}</small>
+                  </button>
+                ))}
+              </aside>
+              <div className="workspace-inspector">
+                <div className="workspace-file-header">
+                  <div><span className="eyebrow">{file.language?.candidate ?? 'Unknown language'}</span><h2 dir="auto">{filePath(file)}</h2></div>
+                  <StatusBadge tone={candidates.length ? 'warning' : 'neutral'}>{candidates.length} CANDIDATE</StatusBadge>
+                </div>
+                <div className="workspace-file-facts">
+                  <span>{ar ? 'الدوال' : 'Functions'} <strong>{structure.counts?.functions ?? 0}</strong></span>
+                  <span>{ar ? 'الاستدعاءات' : 'Calls'} <strong>{structure.counts?.calls ?? 0}</strong></span>
+                  <span>{ar ? 'المسارات' : 'Routes'} <strong>{understanding.counts?.routes ?? 0}</strong></span>
+                  <span>{ar ? 'مسارات البيانات' : 'Data paths'} <strong>{paths.length}</strong></span>
+                </div>
+                <div className="workspace-evidence-grid">
+                  <EvidenceList title={ar ? 'الدوال' : 'Functions'} items={structure.functions ?? []} empty={ar ? 'لا توجد دوال مستخرجة.' : 'No functions extracted.'} render={(item) => <><code dir="ltr">{item.name}</code><small>Line {item.start_line ?? '?'}</small></>} />
+                  <EvidenceList title={ar ? 'الاستيرادات' : 'Imports'} items={structure.imports ?? []} empty={ar ? 'لا توجد استيرادات مستخرجة.' : 'No imports extracted.'} render={(item) => <code dir="ltr">{item.statement ?? item.module ?? 'Unresolved'}</code>} />
+                  <EvidenceList title={ar ? 'مسارات HTTP' : 'HTTP routes'} items={understanding.routes ?? []} empty={ar ? 'لم يُثبت مسار HTTP.' : 'No HTTP route established.'} render={(item) => <code dir="ltr">{item.method ?? (Array.isArray(item.methods) ? item.methods.join(', ') : 'HTTP')} {item.path ?? item.route ?? 'Unresolved'}</code>} />
+                  <EvidenceList title={ar ? 'مسارات البيانات المرصودة' : 'Observed data paths'} items={paths} empty={ar ? 'لا يوجد مسار مصدر إلى عملية حساسة ضمن النطاق المدعوم.' : 'No source-to-sensitive-operation path in supported coverage.'} render={(item) => <><code dir="ltr">{item.kind ?? 'OBSERVED_PATH'}</code><small>{item.evidence_strength ?? 'Unresolved strength'}</small></>} />
+                </div>
+                <section className="workspace-candidates">
+                  <h3>{ar ? 'النتائج المرشحة' : 'Finding candidates'}</h3>
+                  {candidates.length ? candidates.map((finding) => (
+                    <button key={finding.id} onClick={() => navigate(`/projects/${encodeURIComponent(projectId)}/findings/${encodeURIComponent(finding.id)}?${new URLSearchParams({ file: filePath(file) })}`)} type="button">
+                      <span><strong>{finding.pack_assessment?.pack?.replaceAll('_', ' ') ?? finding.title}</strong><small dir="ltr">Line {finding.sink?.start_line ?? '?'} · {finding.scope?.function ?? 'Unresolved'}</small></span>
+                      <span className="candidate-state">CANDIDATE</span>
+                    </button>
+                  )) : <p>{ar ? 'لا توجد مرشحات في هذا الملف. هذا لا يثبت أنه آمن.' : 'No candidates in this file. This does not prove it is safe.'}</p>}
+                </section>
+              </div>
             </div>
-            <div className="live-operation-proof">
-              <span>{ar ? 'ما تم اكتشافه' : 'What was discovered'}</span>
-              <strong>{operation.discovery}</strong>
-              <small>{operation.why}</small>
-            </div>
-          </section>
-
-          <section className={gridClass}>
-            {showExplorer ? (
-              <WorkbenchExplorer
-                ar={ar}
-                data={data}
-                file={file}
-                fileFilter={fileFilter}
-                fileSearch={fileSearch}
-                filteredFiles={filteredFiles}
-                onChooseFinding={chooseFinding}
-                onFileFilter={setFileFilter}
-                onFileSearch={setFileSearch}
-                onSelectFile={selectFile}
-                onSelectFunction={selectFunction}
-                selectedFindingId={selectedFindingId}
-                selectedFunction={selectedFunction}
-              />
-            ) : null}
-
-            <WorkbenchCodePane
-              ar={ar}
-              codeLines={codeLines}
-              file={file}
-              finding={finding}
-              workflowId={workflowId}
-              zoom={zoom}
-            />
-
-            {showInspector ? (
-              <WorkbenchInspector
-                ar={ar}
-                data={data}
-                file={file}
-                finding={finding}
-                onOpenReport={() => navigate(`/projects/${data.passport.id}/report`)}
-                onStage={setWorkflowId}
-                selectedFunction={selectedFunction}
-                workflowId={workflowId}
-              />
-            ) : null}
-          </section>
-        </>
-      ) : null}
+          </>
+        )}
+      </section>
     </AppShell>
   );
 }

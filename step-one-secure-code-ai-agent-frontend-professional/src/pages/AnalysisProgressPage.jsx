@@ -71,7 +71,7 @@ function ResultOverview({ payload, ar, navigate }) {
   return <>
     <section className="result-overview" aria-label={ar ? 'ملخص التحليل' : 'Analysis summary'}>{values.map(([label, value]) => <div key={label}><span>{label}</span><strong dir="auto">{value}</strong></div>)}</section>
     <section className="result-findings"><h2>{ar ? 'المشاكل المكتشفة' : 'Detected problems'}</h2><p>{ar ? 'هذه مرشحات ساكنة، وليست ثغرات مثبتة أو إصلاحات مغلقة.' : 'These are static candidates, not verified vulnerabilities or closed repairs.'}</p>
-      {candidates.length ? <div className="result-finding-list">{candidates.map(({ finding, path }) => <article key={finding.id}><div><strong>{finding.pack_assessment?.pack?.replaceAll('_', ' ') ?? finding.sink?.category ?? 'Security candidate'}</strong><small dir="ltr">{path} · {finding.scope?.function ?? 'Unresolved'}() · Line {finding.sink?.start_line ?? 'Unknown'}</small></div><span className="candidate-state">CANDIDATE</span>{analysisId && <button className="button button-ghost compact-button" onClick={() => navigate(`/projects/${encodeURIComponent(analysisId)}/findings/${encodeURIComponent(finding.id)}`)} type="button">{ar ? 'افتح الدليل' : 'Inspect evidence'}</button>}</article>)}</div> : <div className="analysis-empty">{ar ? 'لا توجد مرشحات ضمن النطاق المدعوم. هذا لا يثبت خلو المشروع من الثغرات.' : 'No candidates in supported coverage. This does not prove the project is safe.'}</div>}
+      {candidates.length ? <div className="result-finding-list">{candidates.map(({ finding, path }) => <article key={`${path}:${finding.id}`}><div><strong>{finding.pack_assessment?.pack?.replaceAll('_', ' ') ?? finding.sink?.category ?? 'Security candidate'}</strong><small dir="ltr">{path} · {finding.scope?.function ?? 'Unresolved'}() · Line {finding.sink?.start_line ?? 'Unknown'}</small></div><span className="candidate-state">CANDIDATE</span>{analysisId && <button className="button button-ghost compact-button" onClick={() => navigate(`/projects/${encodeURIComponent(analysisId)}/findings/${encodeURIComponent(finding.id)}?${new URLSearchParams({ file: path })}`)} type="button">{ar ? 'افتح الدليل' : 'Inspect evidence'}</button>}</article>)}</div> : <div className="analysis-empty">{ar ? 'لا توجد مرشحات ضمن النطاق المدعوم. هذا لا يثبت خلو المشروع من الثغرات.' : 'No candidates in supported coverage. This does not prove the project is safe.'}</div>}
       {analysisId && candidates.length > 1 && <button className="button button-ghost" onClick={() => navigate(`/projects/${encodeURIComponent(analysisId)}/findings`)} type="button">{ar ? 'عرض كل المشاكل المكتشفة' : 'View all detected problems'}</button>}
     </section>
   </>;
@@ -313,7 +313,10 @@ export default function AnalysisProgressPage() {
         </details>
         <div className="progress-actions">
           {persisted && payload.record?.analysis_id ? (
-            <button className="button button-secondary" onClick={() => navigate(`/projects/${encodeURIComponent(payload.record.analysis_id)}/report`)} type="button"><Icon name="report" />{ar ? 'التقرير الحقيقي' : 'Evidence report'}</button>
+            <>
+              <button className="button button-secondary" onClick={() => navigate(`/projects/${encodeURIComponent(payload.record.analysis_id)}/workbench`)} type="button"><Icon name="code" />{ar ? 'استكشف بنية المشروع' : 'Explore structure'}</button>
+              <button className="button button-secondary" onClick={() => navigate(`/projects/${encodeURIComponent(payload.record.analysis_id)}/report`)} type="button"><Icon name="report" />{ar ? 'التقرير الحقيقي' : 'Evidence report'}</button>
+            </>
           ) : null}
           <button className="button button-ghost" onClick={() => navigate('/analysis/new')} type="button"><Icon name="scan" />{ar ? 'تحليل جديد' : 'New analysis'}</button>
           <button className="button button-primary" onClick={() => navigate('/projects')} type="button">{ar ? 'العودة للمشاريع' : 'Back to projects'}<Icon name="arrow" /></button>

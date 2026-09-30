@@ -9,12 +9,6 @@ import {
 
 const AuthContext = createContext(null);
 
-const DEFAULT_USER = {
-  id: 'verified-local-user',
-  name: 'Security Engineer',
-  email: '',
-};
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -29,7 +23,7 @@ export function AuthProvider({ children }) {
   async function refreshSession() {
     const result = await getAuthSession();
     if (result.authenticated) {
-      setUser({ ...DEFAULT_USER, email: result.principal.subject });
+      setUser({ email: result.principal.subject });
       setPasswordConfigured(Boolean(result.password_configured));
       setPasswordResetAllowed(Boolean(result.password_reset_allowed));
     }
@@ -41,10 +35,7 @@ export function AuthProvider({ children }) {
     getAuthSession()
       .then((result) => {
         if (active && result.authenticated) {
-          setUser({
-            ...DEFAULT_USER,
-            email: result.principal.subject,
-          });
+          setUser({ email: result.principal.subject });
           setPasswordConfigured(Boolean(result.password_configured));
           setPasswordResetAllowed(Boolean(result.password_reset_allowed));
         }
@@ -80,8 +71,8 @@ export function AuthProvider({ children }) {
     },
     async completeTwoFactor(code) {
       const result = await verifyEmailChallenge({ challengeId, code });
-      const email = result.email || pendingEmail || DEFAULT_USER.email;
-      setUser({ ...DEFAULT_USER, email });
+      const email = result.email || pendingEmail;
+      setUser({ email });
       setPendingEmail('');
       setChallengeId('');
       await refreshSession();

@@ -46,11 +46,11 @@ Sensors such as SAST, SCA, and AI may add evidence. They are not the reasoning o
 ## Completed baseline review
 
 - No `AGENTS.md` exists.
-- The directory is a Git repository with a public GitHub remote. The live analysis and saved-results screens use the API; other preview screens retain mock contracts.
+- The directory is a Git repository with a public GitHub remote. Authenticated analysis, saved results, findings, report, and project workspace now use owner-scoped API records.
 - Frontend: React/Vite professional UI. Its analysis flow accepts supported source files and ZIP projects, and its production build passes.
 - Backend before this work: Flask app factory, health route, safe text intake, language evidence, Tree-sitter parsing for Python/JavaScript, local call relationships, and source/sink observations.
 - Baseline before continuation: 35 backend tests passed; frontend production build passed.
-- Known presentation risk: the mock UI must not be described as a working verification engine.
+- Known presentation risk: static candidates must not be described as verified exploitability or completed repair.
 
 ## Implemented in this continuation
 
@@ -85,7 +85,7 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 - `backend/app/javascript_bindings.py`: tree-sitter evidence for direct JavaScript named imports, direct calls in top-level functions, and exported target functions. Rebinding, shadowing, nested callers, syntax errors, and unsupported import forms remain unresolved.
 - `frontend/src/pages/AnalysisProgressPage.jsx`: project ZIP results now display project type, file/import/route/call counts, observed frameworks, and up to eight statically evidenced cross-file calls with a clear non-exploitability caveat. Existing per-file presentation remains intact.
 - Persisted analyses now navigate to `/analysis/progress/:analysisId`; refreshing that route loads the HMAC-verified, owner-scoped result through the existing read API. Non-persisted analyses still use navigation state and cannot be restored after refresh. Frontend build passed after this integration.
-- The analyses list is now real: `GET /api/v1/analyses` returns the latest 20 owner-scoped, HMAC-verified metadata summaries without source/result bodies. The `/projects` screen uses these records and opens saved results. Mock workbench, report, and other preview contracts remain separate and are not presented as verified analyses.
+- The analyses list is real: `GET /api/v1/analyses` returns the latest 20 owner-scoped, HMAC-verified metadata summaries without source/result bodies. The `/projects` screen uses these records and opens saved results; its aggregate values are limited to those 20 records.
 - `backend/app/relationship_model.py`: conservative local call resolution.
 - `backend/app/security_semantics.py`: source/sink observations; no findings.
 - `backend/app/data_flow.py`: conservative intra-function evidence paths.
@@ -204,3 +204,10 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 - Shortened the public page without changing backend claims: a CSS code guardian illustrates Raqeeb standing over an application trace; shorter headline and copy, denser five-pack cards, prominent two-path upload, compact stepper, and evaluation examples collapsed behind a disclosure. The illustration is explicitly decorative rather than a live finding.
 - Browser QA at desktop and narrow phone widths found no horizontal overflow; all five pack cards fit, four accepted formats and nine backend-status stages remain visible, and the five stored synthetic examples remain accessible on demand.
 - Authentication safety: removing an address from `VERIFICATION_ALLOWED_EMAILS` now invalidates its existing signed session as well as password sign-in. This is covered by a regression test.
+
+## 2026-09-30 authenticated workspace completion
+
+- Rebuilt `/projects` as a concise dashboard using owner-scoped saved records: actual analysis/file/path/candidate counts, search, file/ZIP filter, direct result and structure navigation, and a useful zero-record state. The list API adds only derived count metadata from HMAC-verified records; no uploaded source is exposed in the list.
+- Replaced the old mock `/projects/:id/workbench` with a real saved-evidence explorer. It shows analyzed files, extracted functions/imports/routes, observed paths, and candidate links. Raw uploaded source is intentionally not retained, so this screen does not pretend to be a code editor.
+- Navigation now connects the result, structure, findings, and report pages for a saved analysis. Removed the unused mock data/endpoints, stale demo workbench components, and fake account name. Duplicate candidate IDs across distinct files now require a file path when opening details instead of silently selecting the wrong file.
+- Tests: 175 backend tests, 4 frontend tests, and the frontend production build pass. The analysis-store list is covered for actual candidate/path counts and metadata-only output; finding lookup has a duplicate-ID regression test. Browser navigation was blocked by the app's browser URL policy during this continuation, so the authenticated dashboard layout has not been visually verified in a browser on this date.

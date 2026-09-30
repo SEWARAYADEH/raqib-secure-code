@@ -147,6 +147,7 @@ class AnalysisStore:
             result = record["result"]
             artifact = result.get("artifact", {})
             scope = result.get("analysis", {}).get("scope", "UNKNOWN")
+            files = result.get("files") or [result]
             summaries.append(
                 {
                     "analysis_id": record["analysis_id"],
@@ -157,6 +158,20 @@ class AnalysisStore:
                     "project_type": result.get(
                         "project_understanding", {}
                     ).get("project_type"),
+                    "files_analyzed": len(files),
+                    "candidate_count": sum(
+                        len(file.get("security_analysis", {}).get("candidates", []))
+                        for file in files
+                    ),
+                    "observed_paths": sum(
+                        file.get("data_flow", {}).get("counts", {}).get(
+                            "observed_paths", 0
+                        )
+                        + file.get("inter_function_data_flow", {}).get(
+                            "counts", {}
+                        ).get("observed_paths", 0)
+                        for file in files
+                    ),
                     "integrity": record["integrity"],
                 }
             )

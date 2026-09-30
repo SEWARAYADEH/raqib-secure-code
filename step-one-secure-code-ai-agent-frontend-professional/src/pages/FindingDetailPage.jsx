@@ -1,17 +1,10 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getStoredAnalysis } from '../api/endpoints';
 import AppShell from '../components/AppShell';
 import AsyncState from '../components/AsyncState';
 import useAsyncResource from '../hooks/useAsyncResource';
 import { useLanguage } from '../i18n';
-
-function locateFinding(result, findingId) {
-  for (const file of result.files ?? [result]) {
-    const finding = file.security_analysis?.candidates?.find((item) => item.id === findingId);
-    if (finding) return { finding, file };
-  }
-  return null;
-}
+import { locateFinding } from '../workspace/locateFinding';
 
 function EvidenceSection({ label, title, children, unavailable = false }) {
   return <section className={`evidence-section${unavailable ? ' unavailable' : ''}`}><span>{label}</span><h2>{title}</h2><div>{children}</div></section>;
@@ -20,17 +13,18 @@ function EvidenceSection({ label, title, children, unavailable = false }) {
 export default function FindingDetailPage() {
   const navigate = useNavigate();
   const { projectId, findingId } = useParams();
+  const [searchParams] = useSearchParams();
   const { language } = useLanguage();
   const ar = language === 'ar';
   const { data, error, loading, reload } = useAsyncResource(() => getStoredAnalysis(projectId), [projectId]);
   const result = data?.record?.result;
-  const match = result ? locateFinding(result, findingId) : null;
+  const match = result ? locateFinding(result, findingId, searchParams.get('file')) : null;
   const finding = match?.finding;
   const path = match?.file?.artifact?.relative_path ?? match?.file?.artifact?.filename ?? 'Unknown';
 
   return <AppShell><section className="evidence-page">
     <AsyncState error={error} loading={loading} loadingLabel={ar ? 'تحميل الدليل المحفوظ…' : 'Loading saved evidence…'} onRetry={reload} />
-    {!loading && !error && !match && <div className="empty-panel">{ar ? 'لم توجد هذه النتيجة في التحليل المحفوظ.' : 'This finding was not found in the saved analysis.'}</div>}
+    {!loading && !error && !match && <div className="empty-panel">{ar ? 'النتيجة غير موجودة أو معرّفها غير فريد. افتحها من قائمة الملفات.' : 'Finding not found or its ID is ambiguous. Open it from the file list.'}</div>}
     {match && <>
       <header className="evidence-header"><button className="text-link" onClick={() => navigate(`/projects/${projectId}/findings`)} type="button">← {ar ? 'كل النتائج' : 'All findings'}</button><span className="candidate-state">CANDIDATE · NOT VERIFIED</span><h1>{finding.pack_assessment?.pack?.replaceAll('_', ' ') ?? finding.sink?.category}</h1><p dir="ltr">{path} · {finding.scope?.function ?? 'Unresolved'}() · Line {finding.sink?.start_line ?? 'Unknown'}</p></header>
       <div className="evidence-sequence">

@@ -31,7 +31,7 @@ npm ci
 npm run dev
 ```
 
-Run the backend tests with `.\.venv\Scripts\python.exe -m pytest -q` from `backend`, then `npm test` and `npm run build` from the frontend directory. Open `http://127.0.0.1:5173/` for the portfolio and `/login` for the workbench. Use the same hostname consistently so the browser reuses its session cookie.
+Run the backend tests with `.\.venv\Scripts\python.exe -m pytest -q` from `backend`, then `npm test` and `npm run build` from the frontend directory. Open `http://127.0.0.1:5173/` for the portfolio, `/login` for sign-in, and `/projects` for the owner-scoped dashboard after sign-in. Use the same hostname consistently so the browser reuses its session cookie. The dashboard and project structure explorer read saved analysis evidence; they do not retain or display raw uploaded source.
 
 The first successful email verification opens Account and security, where the user can create a password. Later visits default to password sign-in without a fresh email code. A lost password can be reset only after a new verified email challenge. Password hashes, attempt throttling, and the five synthetic example summaries live in ignored local SQLite files. Uploaded user code is never published through the examples endpoint.
 

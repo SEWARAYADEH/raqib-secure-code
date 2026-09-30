@@ -1,21 +1,5 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
-export const BACKEND_CONTRACT_REQUIRED = 'BACKEND_CONTRACT_REQUIRED';
-
-export function mockRequest(payload, delay = 140) {
-  return new Promise((resolve) => {
-    window.setTimeout(() => resolve(structuredClone(payload)), delay);
-  });
-}
-
-export function backendContractRequired(feature) {
-  return {
-    code: BACKEND_CONTRACT_REQUIRED,
-    feature,
-    message: 'This frontend contract is intentionally waiting for the Flask backend.',
-  };
-}
-
 export class ApiError extends Error {
   constructor(message, { code = 'API_ERROR', status = 0, requestId = null } = {}) {
     super(message);
