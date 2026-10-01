@@ -20,6 +20,8 @@ The parameterized SQL counterpart at lines 191–202 is classified `NON_QUERY_AR
 
 The report derives file, source, sink, candidate, trace, and unresolved counts from the persisted analysis. Finding details display only bounded code excerpts tied to the source and sink line numbers; React renders them as text, without HTML injection. Excerpts remain in the owner-scoped integrity-checked record and are excluded from the optional Codex advisor context. Previously saved records do not gain excerpts retroactively.
 
+Final live screenshot record for `admin@securenergy.com`: `266704ad-a129-4843-8361-79c3e67c3c13`. It was independently read back from the HMAC-checked SQLite store with the fixture SHA-256 above, 3 candidates, 1 non-candidate path, and the `shell=True` source excerpt on line 236. Post-change checks: backend 196 passed, frontend 4 passed, production build passed.
+
 ## Screenshot order
 
 1. Projects: latest `raqeeB_demo_5_vulnerabilities_550plus.py` entry.
