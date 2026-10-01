@@ -113,6 +113,9 @@ export default function ReportPage() {
                   </p>
                 )) : <p className="analysis-empty">{ar ? 'لا توجد مسارات مستبعدة أو غير محسومة.' : 'No excluded or unresolved paths.'}</p>}
                 <p>{ar ? 'فحص OSV: ' : 'OSV lookup: '}{report.technical.dependency_advisories.status}</p>
+                <h3>{ar ? 'توصيات' : 'Recommendations'}</h3>
+                <ul>{report.technical.recommendations.map((item) => <li key={item}>{item}</li>)}</ul>
+                <h3>{ar ? 'حدود تقنية' : 'Technical limitations'}</h3>
                 <ul>{report.technical.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
               </section>
             ) : null}

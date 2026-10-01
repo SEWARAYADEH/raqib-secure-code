@@ -65,6 +65,10 @@ export function buildReport(record) {
       findings,
       non_candidate_paths: nonCandidatePaths,
       dependency_advisories: advisory ?? { status: 'NOT_APPLICABLE' },
+      recommendations: [
+        'Review each observed path and its controls before deciding whether it is exploitable.',
+        'Validate proposed changes and preserve application behavior in an isolated test environment.',
+      ],
       limitations: [
         'Supported languages are Python and JavaScript/JSX.',
         'General cross-file data flow and runtime reachability are unresolved.',
