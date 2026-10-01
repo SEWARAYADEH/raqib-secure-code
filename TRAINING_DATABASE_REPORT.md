@@ -28,7 +28,7 @@ The corpus is loaded only from checked-in `training/` manifests and fixtures. Ex
 
 ## Verified results
 
-The latest recorded run passed **184 backend tests**, **4 frontend tests**, and the **frontend production build**. The database contains **188 passing individual test outcomes** from that run. Earlier run history, including a failed run while adjusting the published demo-account production guard, is retained rather than rewritten. It contains **12 trusted source cases**: four static candidates, seven static non-candidates, and one JSX structure-only case. The user-upload isolation test passed. The JSONL export has 12 synthetic records.
+The latest recorded run passed **186 backend tests**, **4 frontend tests**, and the **frontend production build**. The database contains **190 passing individual test outcomes** from that run. Earlier run history, including a failed run while adjusting the published demo-account production guard, is retained rather than rewritten. It contains **12 trusted source cases**: four static candidates, seven static non-candidates, and one JSX structure-only case. The user-upload isolation test passed. The JSONL export has 12 synthetic records.
 
 The Python SQL pair has in-memory SQLite functional and replay assertions; the JavaScript pair has Node assertions using a recording database adapter. These checks apply only to those trusted fixtures. They do not prove an arbitrary uploaded project's exploitability, repair, or closure.
 
