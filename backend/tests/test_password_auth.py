@@ -1,9 +1,26 @@
 """Password login must follow verified email and survive a new client session."""
 
 import sqlite3
+import pytest
 
 from app import create_app
 from app.email_verification import EmailChallengeService
+
+
+def test_published_demo_accounts_are_rejected_in_production(tmp_path):
+    with pytest.raises(RuntimeError, match="published demo accounts"):
+        create_app({
+            "APP_ENV": "production",
+            "SECRET_KEY": "s" * 40,
+            "ANALYSIS_API_TOKEN": "a" * 40,
+            "RECORD_INTEGRITY_KEY": "r" * 40,
+            "EMAIL_VERIFICATION_HMAC_KEY": "h" * 40,
+            "ANALYSIS_STORE_ENABLED": True,
+            "ANALYSIS_LOCAL_ONLY": False,
+            "EMAIL_VERIFICATION_ENABLED": False,
+            "VERIFICATION_ALLOWED_EMAILS": "admin@securenergy.com",
+            "AUTH_DATABASE_PATH": str(tmp_path / "auth.sqlite3"),
+        })
 
 
 ORIGIN = {"Origin": "http://localhost:5173"}

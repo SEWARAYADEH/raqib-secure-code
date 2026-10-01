@@ -9,6 +9,11 @@ from flask import current_app, request, session
 
 SCOPE_ANALYSIS_CREATE = "analysis:create"
 SCOPE_ANALYSIS_READ = "analysis:read"
+PUBLIC_DEMO_EMAILS = frozenset({
+    "admin@securenergy.com",
+    "user1@securenergy.com",
+    "engineer@securenergy.com",
+})
 
 
 @dataclass(frozen=True)
@@ -121,9 +126,14 @@ def trusted_frontend_origin() -> bool:
 
 def email_address_allowed(email: str) -> bool:
     """Apply the current email allowlist to restored signed sessions too."""
+    if not isinstance(email, str):
+        return False
+    normalized = email.strip().casefold()
+    if current_app.config["APP_ENV"] == "production" and normalized in PUBLIC_DEMO_EMAILS:
+        return False
     allowed = {
         address.strip().casefold()
         for address in current_app.config["VERIFICATION_ALLOWED_EMAILS"].split(",")
         if address.strip()
     }
-    return isinstance(email, str) and email.strip().casefold() in allowed
+    return normalized in allowed

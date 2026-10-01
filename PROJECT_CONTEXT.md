@@ -235,3 +235,10 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 ## 2026-10-01 Private evaluation and test persistence
 
 - Added a private SQLite evaluation store separate from uploaded analyses. It persists seven inline SQL cases and five reference fixtures with immutable IDs, source hashes, honest static labels, expected/observed counts, and no closure claims. `backend/record_training_tests.py` records suite runs plus individual pytest/Node test outcomes, stores only output hashes, and exports the synthetic corpus to an ignored JSONL file. A new isolation test confirms uploaded source is absent from the corpus. Latest run: 180 backend tests, four frontend tests, and production build passed; 184 individual outcomes saved. This is future ML input, not a trained model.
+
+## 2026-10-01 Proposal, demo sign-in, and optional mail sender
+
+- Re-enabled only the three requested demo addresses in the ignored local email allowlist. Their existing scrypt-hashed passwords were verified through live HTTP password sign-in, all returning 200. Publicly documented demo addresses are rejected in production configuration and signed-session authorization. Do not copy the local credential database to production.
+- Added `PROJECT_PROPOSAL_AR.md` with the 12 requested proposal elements and current-vs-planned boundaries. The README documents the demo sign-ins for local delivery.
+- Added optional `POST /send` backed by Flask-Mail 0.10.0 and Gmail STARTTLS 587. It is disabled by default, requires an independent bearer token and recipient allowlist, reads `EMAIL_USER`/`EMAIL_PASS` from the ignored environment, and returns generic delivery errors. Hostinger OTP transport remains separate. Real Gmail delivery is unverified until a valid Gmail/Workspace sender credential and domain authentication are configured.
+- Latest full check: 184 backend tests, four frontend tests, frontend production build, `pip check`, and local API/frontend HTTP checks passed. This includes a production guard test and mail endpoint unit tests; no live Gmail message was sent.

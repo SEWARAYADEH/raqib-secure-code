@@ -57,6 +57,11 @@ class Config:
     SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
     SMTP_SENDER = os.getenv("SMTP_SENDER", "")
+    MAIL_SEND_ENABLED = os.getenv("MAIL_SEND_ENABLED", "false").lower() == "true"
+    MAIL_SEND_API_TOKEN = os.getenv("MAIL_SEND_API_TOKEN", "")
+    MAIL_ALLOWED_RECIPIENTS = os.getenv("MAIL_ALLOWED_RECIPIENTS", "")
+    EMAIL_USER = os.getenv("EMAIL_USER", "")
+    EMAIL_PASS = os.getenv("EMAIL_PASS", "")
     ISOLATION_RUNTIME_AVAILABLE = os.getenv(
         "ISOLATION_RUNTIME_AVAILABLE",
         "false",

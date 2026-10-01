@@ -35,6 +35,16 @@ Run the backend tests with `.\.venv\Scripts\python.exe -m pytest -q` from `backe
 
 The first successful email verification opens Account and security, where the user can create a password. Later visits default to password sign-in without a fresh email code. A lost password can be reset only after a new verified email challenge. Password hashes, attempt throttling, and the seven synthetic example summaries live in ignored local SQLite files. Uploaded user code is never published through the examples endpoint. The owner's local checkout also has three explicitly requested development demo accounts in its ignored credential database. They are not part of a production deployment or the public Git repository; normal account creation keeps its stronger password policy.
 
+The three **local demonstration** sign-ins are below. They work only in the owner's prepared local credential database and allowlist. The production configuration rejects these published addresses, even if a local database is copied accidentally.
+
+| Email | Development password |
+| --- | --- |
+| `admin@securenergy.com` | `Admin@12345` |
+| `user1@securenergy.com` | `User@12345` |
+| `engineer@securenergy.com` | `Eng@12345` |
+
+An optional `POST /send` mail service uses Flask-Mail with `smtp.gmail.com:587` and STARTTLS. It is disabled by default, requires a separate bearer token of at least 32 characters, and accepts only recipients listed in `MAIL_ALLOWED_RECIPIENTS`. To enable it, put `MAIL_SEND_ENABLED=true`, `MAIL_SEND_API_TOKEN`, `MAIL_ALLOWED_RECIPIENTS`, `EMAIL_USER`, and `EMAIL_PASS` in the ignored `backend/.env`; the exact template is `backend/.env.example`. The JSON body is `{"to":"recipient@example.com","subject":"Subject","body":"Plain text"}`. A successful HTTP 200 means Gmail SMTP accepted the message, not that it reached the inbox. Use an authorized Gmail/Workspace sender and app password; sender display name is `Raqeeb`. Keep the existing Hostinger OTP SMTP settings separate. Gmail delivery also depends on [Google's sender authentication and reputation requirements](https://support.google.com/mail/answer/81126); application code cannot guarantee inbox placement.
+
 The trusted evaluation corpus and actual test outcomes are persisted in the ignored private SQLite database `backend/instance/training_evaluation.sqlite3`. From the project root, run `backend\.venv\Scripts\python.exe backend\record_training_tests.py` to run the suites, save per-test outcomes, and export trusted synthetic cases to `backend/instance/training_cases.jsonl`. Uploaded user code is excluded. See `training/README.md` for the labels and limitations; no machine-learning model has been trained.
 
 ## Deployment gate
@@ -42,3 +52,5 @@ The trusted evaluation corpus and actual test outcomes are persisted in the igno
 Set `APP_ENV=production`, strong independent `SECRET_KEY`, `ANALYSIS_API_TOKEN`, `RECORD_INTEGRITY_KEY`, and `EMAIL_VERIFICATION_HMAC_KEY`, a private database path, and the exact HTTPS `FRONTEND_ORIGIN`. Real OTP also requires `VERIFICATION_ALLOWED_EMAILS`, `SMTP_USERNAME`, `SMTP_PASSWORD` (prefer a dedicated Hostinger Email app password if supported), and `SMTP_SENDER`. Keep these values in the host secret store, never in Git. Run one backend worker until challenge state is moved to a shared store. A public GitHub repository is source hosting, not a running deployment.
 
 See [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for implementation status, [docs/PROJECT_AUDIT_FULL.md](docs/PROJECT_AUDIT_FULL.md) for the complete tracked source inventory and goals 1–20 boundary, [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) for the target folder map, [docs/REPOSITORY_MAP.md](docs/REPOSITORY_MAP.md) for current responsibility mapping, [docs/FOCUSED_SCOPE.md](docs/FOCUSED_SCOPE.md) for the five-pack product scope, [docs/WORKFLOW_AND_STORAGE.md](docs/WORKFLOW_AND_STORAGE.md) for upload/storage responsibility, [docs/REPORTING_MODEL.md](docs/REPORTING_MODEL.md) for report and closure states, [GOALS_1_TO_10_AUDIT.md](GOALS_1_TO_10_AUDIT.md) for evidence and limits, and [HOSTINGER_DEPLOYMENT.md](HOSTINGER_DEPLOYMENT.md) for the hosting gate.
+
+The Arabic handoff proposal is [PROJECT_PROPOSAL_AR.md](PROJECT_PROPOSAL_AR.md).

@@ -7,12 +7,14 @@ from flask_cors import CORS
 
 from config import Config
 from app.api_errors import register_api_error_handlers
+from app.auth import PUBLIC_DEMO_EMAILS
 from app.analysis_store import AnalysisStore
 from app.archive_routes import archive_api
 from app.email_verification import EmailChallengeService
 from app.email_verification_routes import email_verification_api
 from app.example_catalog import ExampleCatalog
 from app.http_security import register_http_security
+from app.mail_sender import mail, mail_sender_api
 from app.password_auth import PasswordStore
 from app.routes import api
 from app.training_store import TrainingStore
@@ -24,6 +26,22 @@ def create_app(config_overrides: dict | None = None):
 
     if config_overrides:
         app.config.update(config_overrides)
+
+    if app.config["MAIL_SEND_ENABLED"]:
+        if not all((
+            app.config["EMAIL_USER"], app.config["EMAIL_PASS"],
+            app.config["MAIL_ALLOWED_RECIPIENTS"],
+        )) or len(app.config["MAIL_SEND_API_TOKEN"]) < 32:
+            raise RuntimeError("Mail sending requires credentials, a strong API token, and allowed recipients.")
+        app.config.update(
+            MAIL_SERVER="smtp.gmail.com",
+            MAIL_PORT=587,
+            MAIL_USE_TLS=True,
+            MAIL_USE_SSL=False,
+            MAIL_USERNAME=app.config["EMAIL_USER"],
+            MAIL_PASSWORD=app.config["EMAIL_PASS"],
+        )
+        mail.init_app(app)
 
     _validate_security_config(app)
     if not app.config.get("SECRET_KEY"):
@@ -101,6 +119,7 @@ def create_app(config_overrides: dict | None = None):
     )
 
     app.register_blueprint(api)
+    app.register_blueprint(mail_sender_api)
     app.register_blueprint(archive_api)
     if app.config["EMAIL_VERIFICATION_ENABLED"]:
         app.register_blueprint(email_verification_api)
@@ -163,6 +182,13 @@ def _validate_security_config(app) -> None:
             raise RuntimeError(
                 "Production email verification requires an allowed address."
             )
+        configured_addresses = {
+            email.strip().casefold()
+            for email in app.config["VERIFICATION_ALLOWED_EMAILS"].split(",")
+            if email.strip()
+        }
+        if configured_addresses & PUBLIC_DEMO_EMAILS:
+            raise RuntimeError("Production cannot enable published demo accounts.")
 
     if app.config["ANALYSIS_STORE_ENABLED"]:
         integrity_key = app.config.get("RECORD_INTEGRITY_KEY")
