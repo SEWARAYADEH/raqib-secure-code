@@ -17,28 +17,28 @@ TRAINING_ROOT = Path(__file__).resolve().parents[2] / "training"
 def test_repository_cases_persist_with_honest_static_labels(tmp_path):
     database_path = tmp_path / "training.sqlite3"
     store = TrainingStore(str(database_path))
-    assert store.sync_repository_cases(TRAINING_ROOT) == 12
+    assert store.sync_repository_cases(TRAINING_ROOT) == 14
     assert store.case_counts() == {
-        "total": 12,
-        "static_candidates": 4,
-        "static_non_candidates": 7,
+        "total": 14,
+        "static_candidates": 5,
+        "static_non_candidates": 8,
         "structure_only": 1,
     }
-    assert store.sync_repository_cases(TRAINING_ROOT) == 12
+    assert store.sync_repository_cases(TRAINING_ROOT) == 14
 
     with sqlite3.connect(database_path) as database:
         rows = database.execute(
             "SELECT provenance, source_text, verified_vulnerabilities, closed_findings "
             "FROM training_cases"
         ).fetchall()
-    assert len(rows) == 12
+    assert len(rows) == 14
     assert all(row[0] == "TRUSTED_REPOSITORY_FIXTURE" for row in rows)
     assert all(row[1] and row[2:] == (0, 0) for row in rows)
 
     export = tmp_path / "training_cases.jsonl"
-    assert store.export_jsonl(export) == 12
+    assert store.export_jsonl(export) == 14
     exported = [json.loads(line) for line in export.read_text(encoding="utf-8").splitlines()]
-    assert len(exported) == 12
+    assert len(exported) == 14
     assert {case["id"] for case in exported} == {
         row["id"] for row in json.loads(
             (TRAINING_ROOT / "cases" / "sql_injection.json").read_text(encoding="utf-8")
@@ -46,9 +46,11 @@ def test_repository_cases_persist_with_honest_static_labels(tmp_path):
     } | {
         row["id"] for row in json.loads(
             (TRAINING_ROOT / "cases" / "reference_fixtures.json").read_text(encoding="utf-8")
-        )
+        ) if row["pack"] != "MIXED_STATIC_EVALUATION"
     }
-    assert TrainingStore(str(database_path)).case_counts()["total"] == 12
+    assert TrainingStore(str(database_path)).case_counts()["total"] == 14
+    assert store.sync_repository_cases(TRAINING_ROOT, include_large_demo=True) == 15
+    assert store.case_counts()["total"] == 15
 
 
 def test_upload_is_not_added_to_training_corpus(tmp_path):
@@ -70,7 +72,7 @@ def test_upload_is_not_added_to_training_corpus(tmp_path):
     )
     assert response.status_code == 200
     store = app.extensions["training_store"]
-    assert store.case_counts()["total"] == 12
+    assert store.case_counts()["total"] == 14
     store.export_jsonl(tmp_path / "training_cases.jsonl")
     assert unique_source not in (tmp_path / "training_cases.jsonl").read_bytes()
 

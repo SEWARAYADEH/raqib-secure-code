@@ -59,7 +59,9 @@ class TrainingStore:
                 PRIMARY KEY (run_id, test_id)
             )""")
 
-    def sync_repository_cases(self, training_root: Path) -> int:
+    def sync_repository_cases(
+        self, training_root: Path, *, include_large_demo: bool = False
+    ) -> int:
         """Analyze trusted versioned cases; reject label drift and altered IDs."""
         root = training_root.resolve(strict=True)
         inline = _read_manifest(root / "cases" / "sql_injection.json")
@@ -74,6 +76,8 @@ class TrainingStore:
                 pack="SQL_INJECTION", pair_id=None, role="EVALUATION",
             ))
         for item in references:
+            if item["pack"] == "MIXED_STATIC_EVALUATION" and not include_large_demo:
+                continue
             fixtures_root = (root / "fixtures").resolve(strict=True)
             fixture = (fixtures_root / item["path"]).resolve(strict=True)
             if not fixture.is_relative_to(fixtures_root) or not fixture.is_file():

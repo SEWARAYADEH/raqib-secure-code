@@ -88,7 +88,7 @@ export default function ReportPage() {
                 <p>{ar ? 'هذا التقرير يصف الأدلة الساكنة فقط. قابلية الاستغلال والإغلاق لم يُتحقق منهما.' : report.executive.conclusion}</p>
                 <p>{ar ? 'بصمة الأصل SHA-256: ' : 'Original SHA-256: '}<code dir="ltr">{report.executive.artifact_sha256}</code></p>
                 <h3>{ar ? 'النتائج الأمنية' : 'Security findings'}</h3>
-                {report.technical.findings.length ? report.technical.findings.map((item) => <p key={item.id}><StatusBadge tone="warning">STATIC_CANDIDATE</StatusBadge>{' '}<code dir="ltr">{item.standards?.cwe ?? 'UNRESOLVED'} · {item.file}:{item.sink?.start_line ?? '?'} · {item.sink?.target ?? 'Unknown sink'}</code></p>) : <p>{ar ? 'لا توجد مرشحات ضمن النطاق المدعوم.' : 'No candidates in supported coverage.'}</p>}
+                {report.technical.findings.length ? report.technical.findings.map((item) => <div className="report-finding-row" key={item.id}><StatusBadge tone="warning">STATIC_CANDIDATE</StatusBadge><code dir="ltr">{item.standards?.cwe ?? 'UNRESOLVED'} · {item.file}:{item.sink?.start_line ?? '?'} · {item.sink?.target ?? 'Unknown sink'}</code><button className="button button-secondary" onClick={() => navigate(`/projects/${encodeURIComponent(projectId)}/findings/${encodeURIComponent(item.id)}?${new URLSearchParams({ file: item.file })}`)} type="button">{ar ? 'الدليل والإصلاح' : 'Evidence and repair'}</button></div>) : <p>{ar ? 'لا توجد مرشحات ضمن النطاق المدعوم.' : 'No candidates in supported coverage.'}</p>}
               </article>
             ) : null}
 
@@ -104,6 +104,7 @@ export default function ReportPage() {
                     <p>{ar ? 'الوصول أثناء التشغيل: ' : 'Runtime reachability: '}{item.reachability?.runtime_reachability ?? 'UNVERIFIED'} · {ar ? 'قابلية الاستغلال: ' : 'Exploitability: '}{item.exploitability?.status ?? 'UNVERIFIED'}</p>
                     <ol>{(item.trace ?? []).map((step, index) => <li key={`${item.id}:${index}`}><code dir="ltr">{step.kind} · {step.target ?? step.value ?? step.name ?? 'STEP'} · line {step.line ?? '?'}</code></li>)}</ol>
                     <div className="code-evidence-grid">{['source', 'sink'].map((kind) => <div key={kind}><strong>{kind.toUpperCase()} · {item.file}</strong><pre dir="ltr"><code>{item.code_evidence?.[kind]?.length ? item.code_evidence[kind].map((row) => `${row.line}  ${row.text}${row.truncated ? ' …' : ''}`).join('\n') : 'Excerpt unavailable for this saved record.'}</code></pre></div>)}</div>
+                    <button className="button button-secondary" onClick={() => navigate(`/projects/${encodeURIComponent(projectId)}/findings/${encodeURIComponent(item.id)}?${new URLSearchParams({ file: item.file })}`)} type="button">{ar ? 'افتح الدليل والإصلاح المقترح' : 'Open evidence and proposed repair'}</button>
                   </article>
                 )) : <p className="analysis-empty">{ar ? 'لا توجد مرشحات مبنية على أدلة ضمن النطاق المدعوم.' : 'No evidence-backed candidates within the supported scope.'}</p>}
                 <h3>{ar ? 'مسارات لم تُرقَّ إلى نتيجة' : 'Paths not promoted to findings'}</h3>

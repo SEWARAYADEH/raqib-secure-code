@@ -27,6 +27,16 @@ export function getStoredAnalysis(analysisId) {
   return apiRequest(`/api/v1/analyses/${encodeURIComponent(analysisId)}`);
 }
 
+export function createRepairProposal({ analysisId, findingId, file }) {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('finding_id', findingId);
+  return apiRequest(`/api/v1/analyses/${encodeURIComponent(analysisId)}/repair-proposal`, {
+    method: 'POST',
+    body,
+  });
+}
+
 export function requestEmailChallenge(email) {
   return apiRequest('/api/v1/auth/email-challenges', {
     method: 'POST',

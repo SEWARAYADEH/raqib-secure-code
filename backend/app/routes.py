@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 
 from flask import (
@@ -31,6 +32,8 @@ from app.intake import (
     SourceFileValidationError,
 )
 from app.security_packs.registry import pack_coverage
+from app.repair_proposals import RepairNotAvailable, propose_repair
+from app.runtime_capabilities import verification_runtime_available
 
 
 api = Blueprint(
@@ -38,6 +41,8 @@ api = Blueprint(
     __name__,
     url_prefix="/api",
 )
+
+MAX_REPAIR_FILE_BYTES = 256 * 1024
 
 
 @api.get("/health")
@@ -142,9 +147,7 @@ def configuration_status():
                 config["OSV_ADVISORY_LOOKUP_ENABLED"]
             ),
             "uploaded_code_execution": False,
-            "isolation_runtime_available": bool(
-                config["ISOLATION_RUNTIME_AVAILABLE"]
-            ),
+            "isolation_runtime_available": verification_runtime_available(),
         },
         "storage": {
             "enabled": bool(config["ANALYSIS_STORE_ENABLED"]),
@@ -354,3 +357,64 @@ def get_analysis(analysis_id: str):
             "record": record,
         }
     )
+
+
+@api.post("/v1/analyses/<analysis_id>/repair-proposal")
+def create_repair_proposal(analysis_id: str):
+    """Re-upload the original; return an unverified patch without storing source."""
+    principal = resolve_analysis_principal()
+    if principal is None:
+        return api_error(status_code=401, code="ANALYSIS_ACCESS_DENIED",
+                         message="Analysis access is not authorized.")
+    if not principal.permits(SCOPE_ANALYSIS_CREATE):
+        return api_error(status_code=403, code="ANALYSIS_SCOPE_FORBIDDEN",
+                         message="The principal cannot create a repair proposal.")
+    try:
+        normalized_id = str(uuid.UUID(analysis_id))
+    except ValueError:
+        return api_error(status_code=404, code="ANALYSIS_NOT_FOUND",
+                         message="The analysis does not exist.")
+    store = current_app.extensions.get("analysis_store")
+    if store is None:
+        return api_error(status_code=503, code="ANALYSIS_STORE_DISABLED",
+                         message="Saved analysis is required.")
+    try:
+        record = store.get(normalized_id)
+    except AnalysisRecordNotFoundError:
+        return api_error(status_code=404, code="ANALYSIS_NOT_FOUND",
+                         message="The analysis does not exist.")
+    except AnalysisRecordIntegrityError:
+        return api_error(status_code=500, code="ANALYSIS_INTEGRITY_FAILURE",
+                         message="The analysis record failed integrity verification.")
+    if record["owner_subject"] != principal.subject:
+        return api_error(status_code=403, code="ANALYSIS_RECORD_FORBIDDEN",
+                         message="The analysis belongs to another principal.")
+    if record["result"].get("analysis", {}).get("scope") != "FILE":
+        return api_error(status_code=422, code="REPAIR_SCOPE_UNSUPPORTED",
+                         message="Only a single saved Python file is supported.")
+    if request.mimetype != "multipart/form-data":
+        return api_error(status_code=415, code="UNSUPPORTED_MEDIA_TYPE",
+                         message="Use multipart/form-data.")
+    uploaded = request.files.getlist("file")
+    finding_id = request.form.get("finding_id", "")
+    if len(uploaded) != 1 or not uploaded[0].filename or not finding_id:
+        return api_error(status_code=400, code="INVALID_REPAIR_INPUT",
+                         message="One original file and a finding ID are required.")
+    content = uploaded[0].stream.read(MAX_REPAIR_FILE_BYTES + 1)
+    if len(content) > MAX_REPAIR_FILE_BYTES:
+        return api_error(status_code=413, code="SOURCE_FILE_TOO_LARGE",
+                         message="The repair proposal limit is 256 KB.")
+    if (uploaded[0].filename != record["result"]["artifact"]["filename"]
+            or hashlib.sha256(content).hexdigest() != record["artifact_sha256"]):
+        return api_error(status_code=409, code="ORIGINAL_FILE_MISMATCH",
+                         message="Re-upload the exact file used for this analysis.")
+    if not any(item["id"] == finding_id for item in
+               record["result"]["security_analysis"]["candidates"]):
+        return api_error(status_code=404, code="FINDING_NOT_FOUND",
+                         message="The finding is not in this saved analysis.")
+    try:
+        proposal = propose_repair(uploaded[0].filename, content, finding_id)
+    except (RepairNotAvailable, SourceFileValidationError, AnalysisValidationError) as exc:
+        return api_error(status_code=422, code="REPAIR_NOT_AVAILABLE",
+                         message=str(exc))
+    return jsonify({"request_id": g.request_id, "proposal": proposal})

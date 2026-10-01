@@ -42,8 +42,7 @@ def test_large_fixture_uses_real_upload_and_keeps_static_limits(tmp_path):
     by_function = {item["scope"]["function"]: item for item in candidates}
     assert "vuln_sql_injection" in by_function
     assert "vuln_command_injection" in by_function
-    # Known false positive in the present command pack: preserve it honestly.
-    assert "safe_command_execution" in by_function
+    assert "safe_command_execution" not in by_function
     assert "safe_parameterized_sql" not in by_function
     assert all(item["state"] == "CANDIDATE" for item in candidates)
     assert result["security_analysis"]["counts"]["verified_vulnerabilities"] == 0
@@ -51,6 +50,10 @@ def test_large_fixture_uses_real_upload_and_keeps_static_limits(tmp_path):
     assert by_function["vuln_sql_injection"]["source"]["start_line"] == 164
     assert by_function["vuln_sql_injection"]["sink"]["start_line"] == 175
     assert by_function["vuln_sql_injection"]["code_evidence"]["source"]
+    non_candidates = result["security_analysis"]["non_candidates"]
+    assert {item["assessment"]["status"] for item in non_candidates} == {
+        "NON_QUERY_ARGUMENT_ONLY", "NON_SHELL_ARGUMENT_FLOW"
+    }
 
     analysis_id = created["record"]["analysis_id"]
     saved = client.get(f"/api/v1/analyses/{analysis_id}")
@@ -60,3 +63,20 @@ def test_large_fixture_uses_real_upload_and_keeps_static_limits(tmp_path):
     listing = client.get("/api/v1/analyses").get_json()["analyses"]
     assert listing[0]["candidate_count"] == len(candidates)
     assert payload not in (tmp_path / "training.sqlite3").read_bytes()
+
+    proposed = client.post(
+        f"/api/v1/analyses/{analysis_id}/repair-proposal",
+        data={
+            "file": (io.BytesIO(payload), FIXTURE.name),
+            "finding_id": by_function["vuln_sql_injection"]["id"],
+        },
+        content_type="multipart/form-data",
+    )
+    assert proposed.status_code == 200
+    repair = proposed.get_json()["proposal"]
+    assert repair["status"] == "PROPOSED_UNVERIFIED"
+    assert repair["static_reanalysis"]["status"] == "NO_MATCH_OBSERVED"
+    assert repair["static_retrace"]["status"] == "OBSERVED_NON_CANDIDATE"
+    assert repair["functional_test"] == "NOT_RUN"
+    assert repair["runtime_replay"] == "NOT_RUN"
+    assert repair["verified_closed"] is False

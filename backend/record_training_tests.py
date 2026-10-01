@@ -98,14 +98,14 @@ def _node_count(output: str, name: str) -> int:
 
 def main() -> int:
     store = TrainingStore(DATABASE)
-    cases = store.sync_repository_cases(ROOT / "training")
+    cases = store.sync_repository_cases(ROOT / "training", include_large_demo=True)
     npm = shutil.which("npm")
     if npm is None:
         raise RuntimeError("Node.js/npm is required to record frontend test evidence.")
 
     junit_path = BACKEND / "instance" / f"test-results-{uuid.uuid4().hex}.xml"
     suites = (
-        ("backend_pytest", [sys.executable, "-m", "pytest", "backend/tests", "-q",
+        ("backend_pytest", [sys.executable, "-m", "pytest", "backend", "-q",
                             f"--junitxml={junit_path}"], ROOT, junit_path),
         ("frontend_node_tests", [npm, "test"], FRONTEND, None),
         ("frontend_build", [npm, "run", "build"], FRONTEND, None),

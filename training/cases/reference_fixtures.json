@@ -53,5 +53,38 @@
     "role": "STRUCTURE",
     "expected_candidates": 0,
     "expected_non_candidate_paths": 0
+  },
+  {
+    "id": "reference_python_command_unsafe_v1",
+    "path": "python/command_unsafe.py",
+    "language": "Python",
+    "pack": "COMMAND_INJECTION",
+    "label": "STATIC_CANDIDATE",
+    "pair_id": "python_command_shell_v1",
+    "role": "BEFORE",
+    "expected_candidates": 1,
+    "expected_non_candidate_paths": 0
+  },
+  {
+    "id": "reference_python_command_fixed_v1",
+    "path": "python/command_fixed.py",
+    "language": "Python",
+    "pack": "COMMAND_INJECTION",
+    "label": "STATIC_NON_CANDIDATE",
+    "pair_id": "python_command_shell_v1",
+    "role": "AFTER",
+    "expected_candidates": 0,
+    "expected_non_candidate_paths": 1
+  },
+  {
+    "id": "reference_python_large_demo_v1",
+    "path": "python/raqeeB_demo_5_vulnerabilities_550plus.py",
+    "language": "Python",
+    "pack": "MIXED_STATIC_EVALUATION",
+    "label": "STATIC_CANDIDATE",
+    "pair_id": null,
+    "role": "EVALUATION",
+    "expected_candidates": 2,
+    "expected_non_candidate_paths": 2
   }
 ]

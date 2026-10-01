@@ -26,6 +26,7 @@ from app.security_semantics import (
 )
 from app.security_packs.registry import pack_coverage
 from app.verification_planner import build_verification_plans
+from app.runtime_capabilities import verification_runtime_available
 from flask import current_app, has_app_context
 
 
@@ -120,11 +121,7 @@ def analyze_source_file(
     )
     verification = build_verification_plans(
         findings,
-        isolation_runtime_available=(
-            bool(current_app.config["ISOLATION_RUNTIME_AVAILABLE"])
-            if has_app_context()
-            else False
-        ),
+        isolation_runtime_available=verification_runtime_available(),
     )
     pipeline = build_pipeline_state(
         findings=findings,

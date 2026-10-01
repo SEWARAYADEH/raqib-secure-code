@@ -10,12 +10,14 @@ def test_configuration_status_exposes_flags_without_secret_values():
         "CODEX_ADVISOR_ENABLED": True,
         "OSV_ADVISORY_LOOKUP_ENABLED": True,
         "EMAIL_VERIFICATION_ENABLED": False,
+        "ISOLATION_RUNTIME_AVAILABLE": True,
     })
     response = app.test_client().get("/api/v1/configuration/status")
     assert response.status_code == 200
     assert response.json["ai"]["key_configured"] is True
     assert response.json["ai"]["model"] == "test-model"
     assert response.json["analysis"]["uploaded_code_execution"] is False
+    assert response.json["analysis"]["isolation_runtime_available"] is False
     assert response.json["analysis"]["osv_advisory_lookup_enabled"] is True
     assert response.json["storage"]["analysis_records"] == "OWNER_SCOPED_APPEND_ONLY"
     assert response.json["storage"]["uploaded_source_retention"] == "TEMPORARY_WORKSPACE_ONLY"

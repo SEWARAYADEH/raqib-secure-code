@@ -1240,6 +1240,14 @@ select {
 .code-evidence-grid > div { min-width: 0; }
 .code-evidence-grid strong { display: block; margin-bottom: 8px; color: var(--text-primary, #e7f3fb); }
 .code-evidence-grid pre { overflow-x: auto; margin: 0; padding: var(--space-4, 16px); border: 1px solid var(--border-subtle, #28445f); border-radius: var(--radius-md, 12px); background: #071629; color: #d7eaf7; font-size: .82rem; line-height: 1.6; }
+.repair-proposal-panel { display: grid; gap: var(--space-4, 16px); padding: clamp(20px, 3vw, 32px); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+.repair-proposal-panel h2 { margin: 6px 0 8px; }
+.repair-proposal-panel p { margin: 0; color: var(--muted); }
+.repair-proposal-panel form { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3, 12px); }
+.repair-proposal-panel input[type="file"] { min-width: min(100%, 280px); max-width: 100%; }
+.repair-proposal-result { display: grid; gap: var(--space-4, 16px); min-width: 0; }
+.repair-proposal-result pre { max-height: 420px; overflow: auto; margin: 0; padding: var(--space-4, 16px); border: 1px solid var(--border); border-radius: var(--radius-md); background: #071629; color: #d7eaf7; font-size: .82rem; line-height: 1.6; }
+.repair-proposal-result .button { justify-self: start; }
 @media (max-width: 760px) { .code-evidence-grid { grid-template-columns: 1fr; } }
 @media (max-width: 850px) { .result-overview { grid-template-columns: repeat(2,minmax(0,1fr)); }.evidence-section { grid-template-columns: 95px 1fr; }.evidence-section>div { grid-column: 1 / -1; } }
 @media (max-width: 570px) { .result-finding-list article { flex-wrap: wrap; }.result-finding-list article>div { flex-basis: 100%; }.evidence-section { grid-template-columns: 1fr; gap: 7px; }.evidence-section>div { grid-column: auto; } }
@@ -3386,6 +3394,10 @@ select {
 .report-metrics strong {
   font-size: 1.45rem;
 }
+
+.report-finding-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid #dbe4ee; }
+.report-finding-row code { flex: 1 1 320px; overflow-wrap: anywhere; }
+.report-finding-row .button { color: #123451; border-color: #a4b8cb; }
 
 .report-document .analysis-path {
   background: #f1f6fb;

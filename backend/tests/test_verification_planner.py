@@ -63,3 +63,20 @@ def test_analysis_contract_never_marks_blocked_plan_as_executed():
         "blocked": 1,
         "executed": 0,
     }
+
+
+def test_configuration_flag_cannot_claim_a_runtime_without_executor():
+    from app import create_app
+
+    app = create_app({
+        "TESTING": True,
+        "ANALYSIS_LOCAL_ONLY": True,
+        "ISOLATION_RUNTIME_AVAILABLE": True,
+    })
+    with app.app_context():
+        result = analyze_source_file(
+            "route.py",
+            b'from flask import request\nimport os\ndef run():\n    os.system(request.args.get("command"))\n',
+        )
+    assert result["exploitability_verification"]["counts"]["ready"] == 0
+    assert result["exploitability_verification"]["plans"][0]["status"] == "BLOCKED"
