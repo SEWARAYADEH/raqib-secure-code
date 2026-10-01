@@ -1,0 +1,57 @@
+[
+  {
+    "id": "reference_python_sql_unsafe",
+    "path": "python/sql_lookup_unsafe.py",
+    "language": "Python",
+    "pack": "SQL_INJECTION",
+    "label": "STATIC_CANDIDATE",
+    "pair_id": "python_sql_lookup",
+    "role": "BEFORE",
+    "expected_candidates": 1,
+    "expected_non_candidate_paths": 0
+  },
+  {
+    "id": "reference_python_sql_fixed",
+    "path": "python/sql_lookup_fixed.py",
+    "language": "Python",
+    "pack": "SQL_INJECTION",
+    "label": "STATIC_NON_CANDIDATE",
+    "pair_id": "python_sql_lookup",
+    "role": "AFTER",
+    "expected_candidates": 0,
+    "expected_non_candidate_paths": 1
+  },
+  {
+    "id": "reference_javascript_sql_unsafe",
+    "path": "javascript/sql_lookup_unsafe.js",
+    "language": "JavaScript",
+    "pack": "SQL_INJECTION",
+    "label": "STATIC_CANDIDATE",
+    "pair_id": "javascript_sql_lookup",
+    "role": "BEFORE",
+    "expected_candidates": 1,
+    "expected_non_candidate_paths": 0
+  },
+  {
+    "id": "reference_javascript_sql_fixed",
+    "path": "javascript/sql_lookup_fixed.js",
+    "language": "JavaScript",
+    "pack": "SQL_INJECTION",
+    "label": "STATIC_NON_CANDIDATE",
+    "pair_id": "javascript_sql_lookup",
+    "role": "AFTER",
+    "expected_candidates": 0,
+    "expected_non_candidate_paths": 1
+  },
+  {
+    "id": "reference_jsx_structure",
+    "path": "javascript/UserLabel.jsx",
+    "language": "JavaScript JSX",
+    "pack": "STRUCTURE_ONLY",
+    "label": "NO_SECURITY_CLAIM",
+    "pair_id": null,
+    "role": "STRUCTURE",
+    "expected_candidates": 0,
+    "expected_non_candidate_paths": 0
+  }
+]

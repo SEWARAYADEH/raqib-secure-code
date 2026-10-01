@@ -63,7 +63,7 @@ The tree mirrors responsibility boundaries. A security pack becomes a package su
 | Analysis storage | `analysis_store.py` | Owner-scoped saved analyses with integrity protection |
 | API/auth | `routes.py`, `archive_routes.py`, `auth.py`, `email_verification.py`, `email_verification_routes.py` | Working subsets; real OTP depends on valid SMTP configuration |
 | UI | `step-one-secure-code-ai-agent-frontend-professional/src/` | Existing frontend baseline; report uses persisted analysis, while some older pages still contain demo data |
-| Case dataset | `training/cases/sql_injection.json`, `backend/tests/test_sql_evaluation_cases.py` | Five deterministic SQL cases; no ML training |
+| Case dataset | `training/cases/`, `training/fixtures/`, `backend/app/training_store.py` | Twelve trusted synthetic cases in private SQLite; individual test results recorded; no ML training |
 | Scenario projects | `scenarios/` | Planned; no executable sandbox or end-to-end case project yet |
 | Report layers | `step-one-secure-code-ai-agent-frontend-professional/src/report/buildReport.js`, `src/pages/ReportPage.jsx` | Executive + technical + explicit `NOT_AVAILABLE` closure layer |
 

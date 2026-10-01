@@ -14,30 +14,24 @@ from app.analysis_service import analyze_source_file
 
 
 FIXTURES = Path(__file__).resolve().parents[2] / "training" / "fixtures"
+MANIFEST = Path(__file__).resolve().parents[2] / "training" / "cases" / "reference_fixtures.json"
+REFERENCE_CASES = json.loads(MANIFEST.read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize(
-    ("relative_path", "language", "candidate_count"),
-    [
-        ("python/sql_lookup_unsafe.py", "Python", 1),
-        ("python/sql_lookup_fixed.py", "Python", 0),
-        ("javascript/sql_lookup_unsafe.js", "JavaScript", 1),
-        ("javascript/sql_lookup_fixed.js", "JavaScript", 0),
-        ("javascript/UserLabel.jsx", "JavaScript JSX", 0),
-    ],
+    "case", REFERENCE_CASES, ids=lambda case: case["id"],
 )
-def test_reference_fixtures_pass_real_parser_and_analysis(
-    relative_path, language, candidate_count
-):
-    path = FIXTURES / relative_path
+def test_reference_fixtures_pass_real_parser_and_analysis(case):
+    path = FIXTURES / case["path"]
     result = analyze_source_file(path.name, path.read_bytes())
 
-    assert result["language"]["candidate"] == language
+    assert result["language"]["candidate"] == case["language"]
     assert result["structure"]["functions"]
-    assert result["security_analysis"]["counts"]["candidates"] == candidate_count
+    assert result["security_analysis"]["counts"]["candidates"] == case["expected_candidates"]
+    assert result["security_analysis"]["counts"]["non_candidate_paths"] == case["expected_non_candidate_paths"]
     assert result["security_analysis"]["counts"]["verified_vulnerabilities"] == 0
     assert result["security_analysis"]["counts"]["closed_findings"] == 0
-    if candidate_count:
+    if case["expected_candidates"]:
         assert result["security_analysis"]["candidates"][0]["trace"]
 
 

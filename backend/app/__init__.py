@@ -15,6 +15,7 @@ from app.example_catalog import ExampleCatalog
 from app.http_security import register_http_security
 from app.password_auth import PasswordStore
 from app.routes import api
+from app.training_store import TrainingStore
 
 
 def create_app(config_overrides: dict | None = None):
@@ -49,6 +50,14 @@ def create_app(config_overrides: dict | None = None):
         Path(__file__).resolve().parents[2] / "training" / "cases" / "sql_injection.json"
     )
     app.extensions["example_catalog"] = examples
+    training_database_path = app.config.get("TRAINING_DATABASE_PATH") or str(
+        Path(app.instance_path) / "training_evaluation.sqlite3"
+    )
+    training_store = TrainingStore(training_database_path)
+    training_store.sync_repository_cases(
+        Path(__file__).resolve().parents[2] / "training"
+    )
+    app.extensions["training_store"] = training_store
 
     if app.config["ANALYSIS_STORE_ENABLED"]:
         database_path = app.config.get(
