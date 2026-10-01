@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
-import Icon from '../components/Icon';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 
@@ -15,6 +14,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState(pendingEmail || '');
   const [mode, setMode] = useState(searchParams.get('mode') === 'code' ? 'code' : 'password');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -27,7 +27,7 @@ export default function LoginPage() {
       return;
     }
 
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
       setError(ar ? 'أدخل بريدًا إلكترونيًا صالحًا.' : 'Enter a valid email address.');
       return;
     }
@@ -35,11 +35,11 @@ export default function LoginPage() {
     try {
       setSubmitting(true);
       if (mode === 'password') {
-        await signInWithPassword(email, password);
+        await signInWithPassword(email.trim(), password);
         setPassword('');
         navigate(location.state?.from ?? '/projects', { replace: true });
       } else {
-        const result = await beginSignIn(email);
+        const result = await beginSignIn(email.trim());
         if (result.requiresTwoFactor) {
           navigate('/two-factor', { state: { from: location.state?.from ?? '/account' } });
         }
@@ -54,7 +54,7 @@ export default function LoginPage() {
             ? (ar ? 'عنوان الموقع غير مسموح به في إعدادات الخادم.' : 'This site origin is not allowed by the server.')
             : requestError.code === 'CHALLENGE_REJECTED'
               ? (ar ? 'انتظر دقيقة قبل طلب رمز جديد.' : 'Wait one minute before requesting another code.')
-              : (ar ? 'تعذر إرسال رمز التحقق. حاول مرة أخرى لاحقًا.' : 'The verification code could not be sent. Try again later.'),
+              : (ar ? 'تعذر تسجيل الدخول الآن. حاول مرة أخرى لاحقًا.' : 'Sign-in is unavailable right now. Try again later.'),
       );
     } finally {
       setSubmitting(false);
@@ -63,13 +63,13 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      description={ar ? 'ادخل بكلمة المرور بعد توثيق بريدك مرة واحدة، أو اختر رمز البريد للدخول الأول.' : 'Use your password after verifying email once, or choose an email code for your first sign-in.'}
+      description={ar ? 'ادخل بكلمة المرور. لأول استخدام، اختر رمز البريد لإعداد الحساب.' : 'Sign in with your password. For first-time setup, choose an email code.'}
       eyebrow={ar ? 'هوية المستخدم' : 'Identity'}
       title={ar ? 'تسجيل الدخول' : 'Sign in'}
     >
       <div className="segmented-control" role="group" aria-label={ar ? 'طريقة الدخول' : 'Sign-in method'}>
         <button className={mode === 'password' ? 'active' : ''} onClick={() => { setMode('password'); setError(''); }} type="button">{ar ? 'كلمة المرور' : 'Password'}</button>
-        <button className={mode === 'code' ? 'active' : ''} onClick={() => { setMode('code'); setError(''); }} type="button">{ar ? 'رمز البريد' : 'Email code'}</button>
+        <button className={mode === 'code' ? 'active' : ''} onClick={() => { setMode('code'); setPassword(''); setShowPassword(false); setError(''); }} type="button">{ar ? 'أول استخدام / رمز البريد' : 'First sign-in / Email code'}</button>
       </div>
       <form className="auth-form" onSubmit={submit}>
         <label className="field-label" htmlFor="login-email">
@@ -87,16 +87,19 @@ export default function LoginPage() {
           />
         </label>
         {mode === 'password' ? (
-          <label className="field-label" htmlFor="login-password">
-            <span>{ar ? 'كلمة المرور' : 'Password'}</span>
-            <input autoComplete="current-password" id="login-password" onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
-          </label>
+          <div className="field-label">
+            <label htmlFor="login-password">{ar ? 'كلمة المرور' : 'Password'}</label>
+            <span className="password-field">
+              <input autoComplete="current-password" id="login-password" onChange={(event) => setPassword(event.target.value)} required type={showPassword ? 'text' : 'password'} value={password} />
+              <button aria-label={showPassword ? (ar ? 'إخفاء كلمة المرور' : 'Hide password') : (ar ? 'إظهار كلمة المرور' : 'Show password')} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)} type="button">{showPassword ? (ar ? 'إخفاء' : 'Hide') : (ar ? 'إظهار' : 'Show')}</button>
+            </span>
+          </div>
         ) : null}
 
         <p className="auth-footnote">{mode === 'password'
-          ? (ar ? 'لم تنشئ كلمة مرور بعد؟ اختر «رمز البريد»، ثم أنشئها من الحساب والأمان بعد الدخول. تبقى الجلسة صالحة حتى سبعة أيام.' : 'No password yet? Choose Email code, then create one in Account and security. Your session lasts up to seven days.')
-          : (ar ? 'سنرسل رمزًا واحدًا صالحًا لعشر دقائق إلى البريد المسموح به. يلزم أن يكون SMTP يعمل.' : 'We will send a single-use code valid for ten minutes. SMTP delivery must be working.')}</p>
-        {mode === 'password' ? <Link className="auth-recovery-link" to="/login?mode=code" onClick={() => setMode('code')}>{ar ? 'نسيت كلمة المرور؟ تحقق بالبريد لإعادة تعيينها' : 'Forgot password? Verify email to reset it'}</Link> : null}
+          ? (ar ? 'بعد توثيق البريد مرة واحدة، اضبط كلمة المرور من الحساب والأمان.' : 'After verifying your email once, set a password in Account and security.')
+          : (ar ? 'سنرسل رمزًا صالحًا لعشر دقائق إلى بريدك.' : 'We will email a code valid for ten minutes.')}</p>
+        {mode === 'password' ? <Link className="auth-recovery-link" to="/login?mode=code" onClick={() => { setMode('code'); setPassword(''); setShowPassword(false); }}>{ar ? 'نسيت كلمة المرور؟ تحقق بالبريد لإعادة تعيينها' : 'Forgot password? Verify email to reset it'}</Link> : null}
 
         {error ? <p className="form-error" role="alert">{error}</p> : null}
 
@@ -105,14 +108,6 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <aside className="demo-boundary">
-        <Icon name="info" size={17} />
-        <span>
-          {ar
-            ? 'كلمة المرور تُتحقق على الخادم وتُخزن كـ hash؛ لا تُحفظ في واجهة المتصفح. رمز البريد يتيح إعدادها أول مرة.'
-            : 'The server verifies a hashed password; the browser does not store it. Email verification enables initial setup.'}
-        </span>
-      </aside>
     </AuthLayout>
   );
 }

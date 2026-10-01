@@ -24,13 +24,15 @@ class ExampleCatalog:
             )""")
 
     def seed_from_cases(self, cases_path: Path) -> int:
-        """Analyze a versioned fixture only when the catalog has no records."""
+        """Add missing versioned fixtures without replacing persisted examples."""
         with self._connect() as db:
-            if db.execute("SELECT 1 FROM evaluation_examples LIMIT 1").fetchone():
-                return 0
             cases = json.loads(cases_path.read_text(encoding="utf-8"))
             if not isinstance(cases, list):
                 raise ValueError("Evaluation cases must be a list.")
+            existing = {
+                row["id"]: dict(row)
+                for row in db.execute("SELECT * FROM evaluation_examples")
+            }
             records = []
             for case in cases:
                 source = case["source"].encode("utf-8")
@@ -43,10 +45,21 @@ class ExampleCatalog:
                 ):
                     raise ValueError(f"Evaluation result changed for {case['id']}.")
                 classification = "CANDIDATE" if candidates else "NOT_VERIFIED"
-                records.append((
+                record = (
                     case["id"], classification, candidates, non_candidates,
                     hashlib.sha256(source).hexdigest(),
-                ))
+                )
+                persisted = existing.get(case["id"])
+                if persisted is not None:
+                    if tuple(persisted[field] for field in (
+                        "id", "classification", "candidate_count",
+                        "non_candidate_count", "source_sha256",
+                    )) != record:
+                        raise ValueError(
+                            f"Versioned evaluation case changed: {case['id']}."
+                        )
+                    continue
+                records.append(record)
             db.executemany(
                 "INSERT INTO evaluation_examples VALUES (?, ?, ?, ?, ?)", records
             )

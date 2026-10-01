@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 
 
@@ -36,6 +37,8 @@ def assess_sql_path(path: dict, parsed: dict) -> dict:
 
     query_argument = arguments[0]
     source = path["source"]
+    if _is_static_string(query_argument.get("text", ""), parsed.get("language")):
+        return _result(NON_QUERY_ARGUMENT, "QUERY_TEXT_IS_STATIC_LITERAL")
     if _contains(query_argument, source):
         return _query_candidate_or_unresolved(
             path, query_argument, "SOURCE_IN_QUERY_ARGUMENT"
@@ -61,6 +64,30 @@ def assess_sql_path(path: dict, parsed: dict) -> dict:
         return _result(NON_QUERY_ARGUMENT, "INPUT_ONLY_IN_LATER_ARGUMENT")
 
     return _result(UNRESOLVED, "QUERY_ARGUMENT_INFLUENCE_NOT_ESTABLISHED")
+
+
+def _is_static_string(text: str, language: str | None) -> bool:
+    if language == "Python":
+        try:
+            return isinstance(ast.literal_eval(text), str)
+        except (SyntaxError, ValueError, TypeError, MemoryError, RecursionError):
+            return False
+    if language in {"JavaScript", "JavaScript JSX"}:
+        if len(text) < 2 or text[0] not in {"'", '"', "`"} or text[-1] != text[0]:
+            return False
+        if text[0] == "`" and "${" in text:
+            return False
+        # A complete quoted token has no unescaped copy of its delimiter inside.
+        escaped = False
+        for character in text[1:-1]:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == text[0]:
+                return False
+        return not escaped
+    return False
 
 
 def _query_candidate_or_unresolved(

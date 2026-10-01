@@ -40,4 +40,10 @@ A deterministic case should record:
 
 Runtime exploit verification is not performed from `training/` until an approved disposable isolation runtime exists.
 
-The current SQL dataset lives in `training/cases/sql_injection.json` and includes unsafe, safe bound-parameter, unrelated-method, misleading-name, and one-boundary safe cases.
+The current SQL dataset lives in `training/cases/sql_injection.json` and includes Python and JavaScript unsafe/bound-parameter cases, unrelated-method and misleading-name counterexamples, and a cross-function safe case. New versioned cases are added to the persisted public example catalog without replacing existing records.
+
+## Executable reference repairs
+
+`training/fixtures/` contains checked-in Python, JavaScript, and JSX examples. `backend/tests/test_reference_repairs.py` sends each file through the real intake, parser, trace, and finding pipeline. The Python SQLite pair is also executed against an in-memory database: ordinary lookup remains functional, a known injected lookup succeeds before the fix and fails afterward, and the fixed file is re-analyzed. The JavaScript pair runs under Node with a recording database adapter to verify that the input remains a parameter instead of becoming query text. The JSX fixture checks language and structural parsing only.
+
+These are **trusted test fixtures**, not uploaded source. The backend never executes user uploads. The JavaScript recording adapter proves the call arguments, not the behavior of every SQL driver. These reference tests do not change pack status or close findings in arbitrary projects; those require project-specific functional tests, replay, re-scan, re-trace, and evidence in an isolated runtime.

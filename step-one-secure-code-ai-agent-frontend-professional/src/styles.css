@@ -523,6 +523,7 @@ code,
 }
 
 .field-label > span:first-child,
+.field-label > label,
 .finding-filters label > span {
   color: #dbe5f0;
   font-size: 0.79rem;
@@ -1227,7 +1228,7 @@ select {
 }
 
 .password-field input {
-  padding-inline-end: 48px;
+  padding-inline-end: 78px;
 }
 
 .password-field button {
@@ -1242,7 +1243,7 @@ select {
   justify-content: center;
   position: absolute;
   top: 2px;
-  width: 40px;
+  width: 72px;
 }
 
 .auth-form-row {

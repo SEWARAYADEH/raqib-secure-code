@@ -33,5 +33,19 @@
     "source": "from flask import request\ndef lookup(cursor, user_id):\n    cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))\ndef handler(cursor):\n    user_id = request.args.get('id')\n    lookup(cursor, user_id)\n",
     "expected_candidates": 0,
     "expected_non_candidate_paths": 1
+  },
+  {
+    "id": "javascript_sql_template_candidate",
+    "language_file": "example.js",
+    "source": "function lookup(req, db) { const id = req.get('x-user-id'); return db.query(`SELECT * FROM users WHERE id = ${id}`); }\n",
+    "expected_candidates": 1,
+    "expected_non_candidate_paths": 0
+  },
+  {
+    "id": "javascript_sql_bound_parameter",
+    "language_file": "example.js",
+    "source": "function lookup(req, db) { const id = req.get('x-user-id'); return db.query('SELECT * FROM users WHERE id = ?', [id]); }\n",
+    "expected_candidates": 0,
+    "expected_non_candidate_paths": 1
   }
 ]
