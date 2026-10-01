@@ -1236,6 +1236,11 @@ select {
 .evidence-section { display: grid; grid-template-columns: 130px 225px 1fr; align-items: start; gap: 26px; padding: 30px; border-bottom: 1px solid #28445f; background: #0d2037; }
 .evidence-section:last-child { border-bottom: 0; }.evidence-section>span { color: #64c7ed; font-size: 0.75rem; font-weight: 900; letter-spacing: .08em; }.evidence-section h2 { font-size: .97rem; margin: 0; }.evidence-section p { margin: 0 0 6px; color: #b2c5d5; font-size: .82rem; }.evidence-section code { overflow-wrap: anywhere; }.evidence-section small { color: #a1b5c9; }
 .evidence-section.unavailable { opacity: .64; }.evidence-trace { display: grid; gap: 9px; margin: 0; padding-inline-start: 20px; }.evidence-trace li { font-size: .79rem; }.evidence-trace b { display: inline-block; min-width: 95px; color: #8ed9f6; }
+.code-evidence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4, 16px); min-width: 0; }
+.code-evidence-grid > div { min-width: 0; }
+.code-evidence-grid strong { display: block; margin-bottom: 8px; color: var(--text-primary, #e7f3fb); }
+.code-evidence-grid pre { overflow-x: auto; margin: 0; padding: var(--space-4, 16px); border: 1px solid var(--border-subtle, #28445f); border-radius: var(--radius-md, 12px); background: #071629; color: #d7eaf7; font-size: .82rem; line-height: 1.6; }
+@media (max-width: 760px) { .code-evidence-grid { grid-template-columns: 1fr; } }
 @media (max-width: 850px) { .result-overview { grid-template-columns: repeat(2,minmax(0,1fr)); }.evidence-section { grid-template-columns: 95px 1fr; }.evidence-section>div { grid-column: 1 / -1; } }
 @media (max-width: 570px) { .result-finding-list article { flex-wrap: wrap; }.result-finding-list article>div { flex-basis: 100%; }.evidence-section { grid-template-columns: 1fr; gap: 7px; }.evidence-section>div { grid-column: auto; } }
 
@@ -3364,7 +3369,7 @@ select {
 .report-metrics {
   border-bottom: 1px solid #dbe4ee;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .report-metrics > div {
@@ -3380,6 +3385,24 @@ select {
 
 .report-metrics strong {
   font-size: 1.45rem;
+}
+
+.report-document .analysis-path {
+  background: #f1f6fb;
+  border: 1px solid #dbe4ee;
+  color: #102033;
+  margin-block: 16px;
+}
+
+.report-document .analysis-path p,
+.report-document .analysis-path code,
+.report-document .analysis-path strong {
+  color: #223c56;
+}
+
+.report-document .code-evidence-grid code,
+.report-document .code-evidence-grid strong {
+  color: #d7eaf7;
 }
 
 .report-section {

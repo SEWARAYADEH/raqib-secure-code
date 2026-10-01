@@ -18,6 +18,7 @@ export function buildReport(record) {
       reachability: candidate.reachability,
       exploitability: candidate.exploitability,
       controls: candidate.controls,
+      code_evidence: candidate.code_evidence ?? null,
     }))
   ));
   const nonCandidatePaths = files.flatMap((file) => (
@@ -29,17 +30,30 @@ export function buildReport(record) {
     }))
   ));
   const advisory = result.project_understanding?.dependency_advisories;
+  const sources = files.reduce((sum, file) => sum + (file.security_semantics?.counts?.sources ?? 0), 0);
+  const sinks = files.reduce((sum, file) => sum + (file.security_semantics?.counts?.sinks ?? 0), 0);
+  const observedPaths = files.reduce((sum, file) => sum
+    + (file.data_flow?.counts?.observed_paths ?? 0)
+    + (file.inter_function_data_flow?.counts?.observed_paths ?? 0), 0);
+  const unresolvedPaths = nonCandidatePaths.filter((item) =>
+    item.assessment?.status?.includes('UNRESOLVED')).length;
 
   return {
     schema_version: '1.0',
     report_type: 'PARTIAL_STATIC_EVIDENCE',
     analysis_id: record.analysis_id,
+    created_at: record.created_at ?? null,
     generated_from_record_integrity: record.integrity,
     executive: {
       artifact_name: result.artifact?.filename ?? 'UNKNOWN',
       artifact_sha256: record.artifact_sha256,
       scope: result.analysis?.scope ?? 'UNKNOWN',
       analyzed_files: files.length,
+      sources,
+      sinks,
+      observed_paths: observedPaths,
+      evidence_traces: findings.filter((finding) => finding.trace?.length > 0).length,
+      unresolved_paths: unresolvedPaths,
       finding_candidates: findings.length,
       non_candidate_paths: nonCandidatePaths.length,
       dependency_advisory_matches: advisory?.counts?.advisory_matches ?? 0,

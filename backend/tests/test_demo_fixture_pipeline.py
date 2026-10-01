@@ -1,0 +1,62 @@
+"""Exercise the controlled fixture through the ordinary upload and storage API."""
+
+import io
+from pathlib import Path
+
+from app import create_app
+
+
+FIXTURE = (
+    Path(__file__).resolve().parents[2]
+    / "demo"
+    / "security_fixtures"
+    / "raqeeB_demo_5_vulnerabilities_550plus.py"
+)
+
+
+def test_large_fixture_uses_real_upload_and_keeps_static_limits(tmp_path):
+    app = create_app({
+        "TESTING": True,
+        "ANALYSIS_LOCAL_ONLY": True,
+        "ANALYSIS_STORE_ENABLED": True,
+        "ANALYSIS_DATABASE_PATH": str(tmp_path / "analyses.sqlite3"),
+        "TRAINING_DATABASE_PATH": str(tmp_path / "training.sqlite3"),
+        "RECORD_INTEGRITY_KEY": "fixture-integrity-key-long-enough-12345",
+    })
+    client = app.test_client()
+    payload = FIXTURE.read_bytes()
+    response = client.post(
+        "/api/v1/analysis/source",
+        data={"file": (io.BytesIO(payload), FIXTURE.name)},
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 200
+    created = response.get_json()
+    assert created["record"]["persisted"] is True
+    result = created["result"]
+    assert result["artifact"]["line_count"] > 500
+    assert result["analysis"]["execution_policy"] == "NEVER_EXECUTE_SOURCE"
+    assert "source_text" not in result["artifact"]
+
+    candidates = result["security_analysis"]["candidates"]
+    by_function = {item["scope"]["function"]: item for item in candidates}
+    assert "vuln_sql_injection" in by_function
+    assert "vuln_command_injection" in by_function
+    # Known false positive in the present command pack: preserve it honestly.
+    assert "safe_command_execution" in by_function
+    assert "safe_parameterized_sql" not in by_function
+    assert all(item["state"] == "CANDIDATE" for item in candidates)
+    assert result["security_analysis"]["counts"]["verified_vulnerabilities"] == 0
+    assert all(not pack["can_close"] for pack in result["security_packs"])
+    assert by_function["vuln_sql_injection"]["source"]["start_line"] == 164
+    assert by_function["vuln_sql_injection"]["sink"]["start_line"] == 175
+    assert by_function["vuln_sql_injection"]["code_evidence"]["source"]
+
+    analysis_id = created["record"]["analysis_id"]
+    saved = client.get(f"/api/v1/analyses/{analysis_id}")
+    assert saved.status_code == 200
+    persisted = saved.get_json()["record"]["result"]
+    assert persisted["security_analysis"]["candidates"] == candidates
+    listing = client.get("/api/v1/analyses").get_json()["analyses"]
+    assert listing[0]["candidate_count"] == len(candidates)
+    assert payload not in (tmp_path / "training.sqlite3").read_bytes()

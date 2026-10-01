@@ -6,11 +6,14 @@ import { buildReport } from './buildReport.js';
 test('report keeps a candidate separate from verified closure', () => {
   const report = buildReport({
     analysis_id: 'analysis-1',
+    created_at: '2026-10-01T00:00:00+00:00',
     artifact_sha256: 'abc',
     integrity: 'HMAC-SHA256',
     result: {
       artifact: { filename: 'sample.py' },
       analysis: { scope: 'FILE' },
+      security_semantics: { counts: { sources: 2, sinks: 1 } },
+      data_flow: { counts: { observed_paths: 1 } },
       security_analysis: {
         candidates: [{
           id: 'candidate-1', state: 'CANDIDATE', title: 'Observed flow',
@@ -18,6 +21,7 @@ test('report keeps a candidate separate from verified closure', () => {
           source: { category: 'http_query_input' },
           sink: { category: 'sql_execution_candidate' },
           trace: [], reachability: {}, exploitability: {}, controls: {},
+          code_evidence: { source: [{ line: 5, text: 'request.args.get("id")' }], sink: [] },
         }],
         non_candidates: [{
           source: { category: 'http_query_input' },
@@ -29,6 +33,11 @@ test('report keeps a candidate separate from verified closure', () => {
     },
   });
   assert.equal(report.executive.finding_candidates, 1);
+  assert.equal(report.executive.sources, 2);
+  assert.equal(report.executive.sinks, 1);
+  assert.equal(report.executive.observed_paths, 1);
+  assert.equal(report.created_at, '2026-10-01T00:00:00+00:00');
+  assert.deepEqual(report.technical.findings[0].code_evidence.source, [{ line: 5, text: 'request.args.get("id")' }]);
   assert.equal(report.executive.non_candidate_paths, 1);
   assert.equal(report.technical.non_candidate_paths[0].assessment.status, 'NON_QUERY_ARGUMENT_ONLY');
   assert.equal(report.executive.verified_closed, 0);

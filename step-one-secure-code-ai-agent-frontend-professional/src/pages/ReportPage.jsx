@@ -73,19 +73,22 @@ export default function ReportPage() {
               <article className="report-document">
                 <header className="report-cover">
                   <div><span className="eyebrow">PARTIAL STATIC EVIDENCE</span><h2><bdi dir="ltr">{report.executive.artifact_name}</bdi></h2>
-                    <p className="technical-value">{report.analysis_id}</p></div>
+                    <p className="technical-value">Analysis ID · {report.analysis_id}</p>
+                    {report.created_at ? <p>{ar ? 'وقت التحليل: ' : 'Analyzed: '}{new Date(report.created_at).toLocaleString()}</p> : null}</div>
                   <StatusBadge tone="warning">UNVERIFIED</StatusBadge>
                 </header>
                 <section className="report-metrics">
                   <div><span>{ar ? 'ملفات محللة' : 'Analyzed files'}</span><strong>{report.executive.analyzed_files}</strong></div>
+                  <div><span>{ar ? 'مدخلات مرصودة' : 'Detected sources'}</span><strong>{report.executive.sources}</strong></div>
+                  <div><span>{ar ? 'عمليات حساسة' : 'Detected sinks'}</span><strong>{report.executive.sinks}</strong></div>
                   <div><span>{ar ? 'مرشحات نتائج' : 'Finding candidates'}</span><strong>{report.executive.finding_candidates}</strong></div>
-                  <div><span>{ar ? 'مسارات لم تُرقَّ إلى نتيجة' : 'Non-candidate paths'}</span><strong>{report.executive.non_candidate_paths}</strong></div>
-                  <div><span>{ar ? 'تطابقات تنبيهات الاعتماديات' : 'Dependency advisory matches'}</span><strong>{report.executive.dependency_advisory_matches}</strong></div>
-                  <div><span>{ar ? 'استغلال مثبت' : 'Verified exploitable'}</span><strong>0</strong></div>
-                  <div><span>{ar ? 'إغلاق مثبت' : 'Verified closed'}</span><strong>0</strong></div>
+                  <div><span>{ar ? 'مسارات دليل' : 'Evidence traces'}</span><strong>{report.executive.evidence_traces}</strong></div>
+                  <div><span>{ar ? 'مسارات غير محسومة' : 'Unresolved paths'}</span><strong>{report.executive.unresolved_paths}</strong></div>
                 </section>
                 <p>{ar ? 'هذا التقرير يصف الأدلة الساكنة فقط. قابلية الاستغلال والإغلاق لم يُتحقق منهما.' : report.executive.conclusion}</p>
                 <p>{ar ? 'بصمة الأصل SHA-256: ' : 'Original SHA-256: '}<code dir="ltr">{report.executive.artifact_sha256}</code></p>
+                <h3>{ar ? 'النتائج الأمنية' : 'Security findings'}</h3>
+                {report.technical.findings.length ? report.technical.findings.map((item) => <p key={item.id}><StatusBadge tone="warning">STATIC_CANDIDATE</StatusBadge>{' '}<code dir="ltr">{item.standards?.cwe ?? 'UNRESOLVED'} · {item.file}:{item.sink?.start_line ?? '?'} · {item.sink?.target ?? 'Unknown sink'}</code></p>) : <p>{ar ? 'لا توجد مرشحات ضمن النطاق المدعوم.' : 'No candidates in supported coverage.'}</p>}
               </article>
             ) : null}
 
@@ -97,8 +100,10 @@ export default function ReportPage() {
                     <div className="analysis-path-title"><StatusBadge tone="warning">{item.state}</StatusBadge><strong>{item.title}</strong></div>
                     <p><code dir="ltr">{item.file} · {item.standards?.cwe ?? 'UNRESOLVED'} · {item.standards?.status ?? 'UNRESOLVED'}</code></p>
                     <p>{ar ? 'المصدر: ' : 'Source: '}{item.source?.category} → {ar ? 'المصرف: ' : 'Sink: '}{item.sink?.category}</p>
+                    <p><code dir="ltr">{item.source?.target ?? 'Unknown source'} · line {item.source?.start_line ?? '?'} → {item.sink?.target ?? 'Unknown sink'} · line {item.sink?.start_line ?? '?'}</code></p>
                     <p>{ar ? 'الوصول أثناء التشغيل: ' : 'Runtime reachability: '}{item.reachability?.runtime_reachability ?? 'UNVERIFIED'} · {ar ? 'قابلية الاستغلال: ' : 'Exploitability: '}{item.exploitability?.status ?? 'UNVERIFIED'}</p>
                     <ol>{(item.trace ?? []).map((step, index) => <li key={`${item.id}:${index}`}><code dir="ltr">{step.kind} · {step.target ?? step.value ?? step.name ?? 'STEP'} · line {step.line ?? '?'}</code></li>)}</ol>
+                    <div className="code-evidence-grid">{['source', 'sink'].map((kind) => <div key={kind}><strong>{kind.toUpperCase()} · {item.file}</strong><pre dir="ltr"><code>{item.code_evidence?.[kind]?.length ? item.code_evidence[kind].map((row) => `${row.line}  ${row.text}${row.truncated ? ' …' : ''}`).join('\n') : 'Excerpt unavailable for this saved record.'}</code></pre></div>)}</div>
                   </article>
                 )) : <p className="analysis-empty">{ar ? 'لا توجد مرشحات مبنية على أدلة ضمن النطاق المدعوم.' : 'No evidence-backed candidates within the supported scope.'}</p>}
                 <h3>{ar ? 'مسارات لم تُرقَّ إلى نتيجة' : 'Paths not promoted to findings'}</h3>

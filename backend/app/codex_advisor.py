@@ -96,7 +96,10 @@ def build_minimal_advisor_context(
             "frameworks": analysis["application_understanding"]["frameworks"],
             "routes": analysis["application_understanding"]["routes"],
         },
-        "finding": finding,
+        "finding": {
+            key: value for key, value in finding.items()
+            if key != "code_evidence"
+        },
         "constraints": {
             "advisory_only": True,
             "minimal_patch": True,

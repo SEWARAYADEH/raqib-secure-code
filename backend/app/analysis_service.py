@@ -102,6 +102,17 @@ def analyze_source_file(
         intra_function_flow=data_flow,
         inter_function_flow=inter_function_data_flow,
     )
+    for finding in findings["candidates"]:
+        finding["code_evidence"] = {
+            "source": _source_window(
+                intake["source_text"], finding["source"]["start_line"]
+            ),
+            "sink": _source_window(
+                intake["source_text"],
+                finding["sink"]["start_line"],
+                finding["sink"]["end_line"],
+            ),
+        }
     hybrid_security = correlate_file_evidence(
         semantics=semantics,
         understanding=understanding,
@@ -170,3 +181,22 @@ def _advisor_status() -> dict:
             ],
         )
     )
+
+
+def _source_window(
+    source_text: str, line_number: int, end_line: int | None = None
+) -> list[dict]:
+    """Retain only a bounded, owner-scoped excerpt for a finding."""
+    lines = source_text.splitlines()
+    if not isinstance(line_number, int) or not 1 <= line_number <= len(lines):
+        return []
+    first = max(1, line_number - 1)
+    last = min(len(lines), max(line_number + 1, end_line or line_number), first + 9)
+    return [
+        {
+            "line": number,
+            "text": lines[number - 1][:240],
+            "truncated": len(lines[number - 1]) > 240,
+        }
+        for number in range(first, last + 1)
+    ]
