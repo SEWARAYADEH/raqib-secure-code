@@ -8,7 +8,25 @@ import { useLanguage } from '../i18n';
 import { locateFinding } from '../workspace/locateFinding';
 
 function EvidenceSection({ label, title, children, unavailable = false }) {
-  return <section className={`evidence-section${unavailable ? ' unavailable' : ''}`}><span>{label}</span><h2>{title}</h2><div>{children}</div></section>;
+  return <section className={`evidence-section${unavailable ? ' unavailable' : ''}`} id={`evidence-${label.toLowerCase().replaceAll(' ', '-')}`}><span>{label}</span><h2>{title}</h2><div>{children}</div></section>;
+}
+
+function FindingStageRail({ finding, proposal, ar }) {
+  const stages = [
+    ['TRACE', finding.trace?.length ? 'OBSERVED' : 'UNRESOLVED'],
+    ['VERIFICATION', finding.exploitability?.status ?? 'UNVERIFIED'],
+    ['ROOT CAUSE', proposal?.root_cause?.status ?? finding.root_cause?.status ?? 'UNRESOLVED'],
+    ['FIX', proposal?.status ?? 'NOT_PROPOSED'],
+    ['TESTS', proposal?.functional_evidence?.status ?? 'NOT_RUN'],
+    ['RE-VERIFY', proposal?.static_reanalysis?.status ?? 'NOT_RUN'],
+    ['RUNTIME', 'NOT_AVAILABLE'],
+    ['EVIDENCE', proposal?.closure_evaluation?.status ?? 'NOT_AVAILABLE'],
+  ];
+  return <aside className="finding-stage-rail" aria-label={ar ? 'مراحل الدليل الحالية' : 'Current evidence stages'}>
+    <strong>{ar ? 'حالة المراحل' : 'Stage status'}</strong>
+    <p>{ar ? 'من السجل الحقيقي لهذه النتيجة' : 'From this finding’s saved record'}</p>
+    <ol>{stages.map(([label, status]) => <li key={label}><button className={['OBSERVED', 'STATICALLY_SUPPORTED', 'PROPOSED_UNVERIFIED', 'PASS', 'NO_MATCH_OBSERVED'].includes(status) ? 'stage-observed' : 'stage-limited'} onClick={() => document.getElementById(`evidence-${label.toLowerCase().replaceAll(' ', '-')}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })} type="button"><span>{label}</span><small>{status.replaceAll('_', ' ')}</small></button></li>)}</ol>
+  </aside>;
 }
 
 function TraceFlow({ steps = [], ar, canPropose }) {
@@ -99,6 +117,9 @@ export default function FindingDetailPage() {
     {!loading && !error && !match && <div className="empty-panel">{ar ? 'النتيجة غير موجودة أو معرّفها غير فريد. افتحها من قائمة الملفات.' : 'Finding not found or its ID is ambiguous. Open it from the file list.'}</div>}
     {match && <>
       <header className="evidence-header"><button className="text-link" onClick={() => navigate(`/projects/${projectId}/findings`)} type="button">← {ar ? 'كل النتائج' : 'All findings'}</button><span className="candidate-state">STATIC_CANDIDATE · {activeProposal?.closure_evaluation?.status ?? 'NOT VERIFIED'}</span><h1>{finding.pack_assessment?.pack?.replaceAll('_', ' ') ?? finding.sink?.category}</h1><p dir="ltr">{path} · {finding.scope?.function ?? 'Unresolved'}() · Line {finding.sink?.start_line ?? 'Unknown'}</p></header>
+      <div className="finding-evidence-layout">
+      <FindingStageRail ar={ar} finding={finding} proposal={activeProposal} />
+      <div className="finding-evidence-main">
       {['sql_execution_candidate', 'process_execution'].includes(finding.sink?.category) && <section className="repair-proposal-panel" id="repair-proposal" aria-label={ar ? 'توليد إصلاح مقترح' : 'Generate a repair proposal'}>
         <div><span className="eyebrow">PROPOSED · UNVERIFIED</span><h2>{ar ? 'ولّد إصلاحًا مقترحًا' : 'Generate a proposed repair'}</h2><p>{ar ? 'أعد اختيار الملف الأصلي نفسه. نتحقق من بصمته ونولّد تعديلًا محدودًا دون تشغيله أو تغيير الأصل.' : 'Select the exact original again. We verify its digest and generate a narrow patch without running or overwriting it.'}</p></div>
         <form onSubmit={requestProposal}><label htmlFor="repair-original-file">{ar ? 'الملف الأصلي' : 'Original file'}</label><input accept=".py" id="repair-original-file" onChange={(event) => { setOriginalFile(event.target.files?.[0] ?? null); setProposal(null); setRepairError(''); }} required type="file" /><button className="button button-primary" disabled={repairBusy || !originalFile} type="submit">{repairBusy ? (ar ? 'جارٍ توليد المقترح…' : 'Generating…') : (ar ? 'ولّد الإصلاح' : 'Generate proposal')}</button></form>
@@ -119,6 +140,8 @@ export default function FindingDetailPage() {
         <EvidenceSection label="RUNTIME" title={ar ? 'التحقق المعزول وReplay' : 'Isolated verification and replay'} unavailable><strong>NOT_AVAILABLE</strong><p>{ar ? 'لا يوجد منفّذ عزل معتمد. لم يُشغّل المشروع المرفوع أو سيناريو استغلال.' : 'No reviewed isolated executor. The uploaded project and exploit scenario were not run.'}</p></EvidenceSection>
         <EvidenceSection label="CLOSURE GATES" title={ar ? 'بوابات الإغلاق' : 'Closure gates'} unavailable={!activeProposal}><strong>{activeProposal?.closure_evaluation?.status ?? 'NOT_AVAILABLE'}</strong>{activeProposal?.closure_evaluation && <ul className="closure-gates">{activeProposal.closure_evaluation.gates.map((gate) => <li key={gate.name}><span>{gate.name.replaceAll('_', ' ')}</span><b>{gate.status}</b></li>)}</ul>}</EvidenceSection>
         <EvidenceSection label="EVIDENCE" title={ar ? 'دليل الإغلاق' : 'Closure evidence'} unavailable><strong>{activeProposal?.closure_evaluation?.verified_closed ? 'VERIFIED_CLOSED' : 'NOT_AVAILABLE'}</strong></EvidenceSection>
+      </div>
+      </div>
       </div>
     </>}
   </section></AppShell>;

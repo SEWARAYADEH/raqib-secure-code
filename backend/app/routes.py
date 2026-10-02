@@ -1,4 +1,5 @@
 import hashlib
+import urllib.error
 import uuid
 
 from flask import (
@@ -22,6 +23,12 @@ from app.auth import (
     SCOPE_ANALYSIS_CREATE,
     SCOPE_ANALYSIS_READ,
     resolve_analysis_principal,
+)
+from app.codex_advisor import (
+    AdvisorConfig,
+    AdvisorUnavailable,
+    CodexAdvisor,
+    build_minimal_advisor_context,
 )
 from app.archive_intake import (
     MAX_ARCHIVE_BYTES,
@@ -92,9 +99,9 @@ def analysis_options():
                 {"id": "TRACE", "status": "PARTIAL"},
                 {"id": "DETECT", "status": "PARTIAL"},
                 {"id": "VERIFY", "status": "NOT_AVAILABLE"},
-                {"id": "FIX", "status": "NOT_AVAILABLE"},
-                {"id": "TEST", "status": "NOT_AVAILABLE"},
-                {"id": "RE_VERIFY", "status": "NOT_AVAILABLE"},
+                {"id": "FIX", "status": "PARTIAL", "scope": "SUPPORTED_PYTHON_PROPOSAL"},
+                {"id": "TEST", "status": "PARTIAL", "scope": "PINNED_TRUSTED_FIXTURE"},
+                {"id": "RE_VERIFY", "status": "PARTIAL", "scope": "STATIC_RE_SCAN_AND_RE_TRACE"},
                 {"id": "EVIDENCE", "status": "NOT_AVAILABLE"},
             ],
             "safety": {
@@ -357,6 +364,91 @@ def get_analysis(analysis_id: str):
             "record": record,
         }
     )
+
+
+@api.post("/v1/analyses/<analysis_id>/findings/<finding_id>/advice")
+def advise_on_finding(analysis_id: str, finding_id: str):
+    """Send only bounded saved evidence to the optional advisory provider."""
+    principal = resolve_analysis_principal()
+    if principal is None:
+        return api_error(status_code=401, code="ANALYSIS_ACCESS_DENIED",
+                         message="Analysis access is not authorized.")
+    if not principal.permits(SCOPE_ANALYSIS_READ):
+        return api_error(status_code=403, code="ANALYSIS_SCOPE_FORBIDDEN",
+                         message="The principal cannot read this finding.")
+    if request.mimetype != "application/json":
+        return api_error(status_code=415, code="UNSUPPORTED_MEDIA_TYPE",
+                         message="Use application/json.")
+    if request.content_length is not None and request.content_length > 1024:
+        return api_error(status_code=413, code="ADVISOR_INPUT_TOO_LARGE",
+                         message="Only a file path selector is accepted.")
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict) or set(body) != {"file_path"}:
+        return api_error(status_code=400, code="INVALID_ADVISOR_INPUT",
+                         message="A file_path selector is required.")
+    file_path = body["file_path"]
+    if not isinstance(file_path, str) or not 0 < len(file_path) <= 512 or len(finding_id) > 128:
+        return api_error(status_code=400, code="INVALID_ADVISOR_INPUT",
+                         message="The finding selector is invalid.")
+    try:
+        normalized_id = str(uuid.UUID(analysis_id))
+    except ValueError:
+        return api_error(status_code=404, code="ANALYSIS_NOT_FOUND",
+                         message="The requested analysis does not exist.")
+    store = current_app.extensions.get("analysis_store")
+    if store is None:
+        return api_error(status_code=503, code="ANALYSIS_STORE_DISABLED",
+                         message="Saved analysis is required.")
+    try:
+        record = store.get(normalized_id)
+    except AnalysisRecordNotFoundError:
+        return api_error(status_code=404, code="ANALYSIS_NOT_FOUND",
+                         message="The requested analysis does not exist.")
+    except AnalysisRecordIntegrityError:
+        return api_error(status_code=500, code="ANALYSIS_INTEGRITY_FAILURE",
+                         message="The analysis record failed integrity verification.")
+    if record["owner_subject"] != principal.subject:
+        return api_error(status_code=403, code="ANALYSIS_RECORD_FORBIDDEN",
+                         message="The analysis belongs to another principal.")
+    files = record["result"].get("files") or [record["result"]]
+    matches = [file for file in files
+               if (file.get("artifact", {}).get("relative_path")
+                   or file.get("artifact", {}).get("filename")) == file_path
+               and any(candidate.get("id") == finding_id for candidate in
+                       file.get("security_analysis", {}).get("candidates", []))]
+    if len(matches) != 1:
+        return api_error(status_code=404, code="FINDING_NOT_FOUND",
+                         message="The finding is not unique in the selected file.")
+    config = current_app.config
+    advisor_config = AdvisorConfig(
+        enabled=bool(config["CODEX_ADVISOR_ENABLED"]),
+        api_key=config["OPENAI_API_KEY"],
+        model=config["OPENAI_MODEL"],
+        max_context_characters=config["CODEX_CONTEXT_MAX_CHARACTERS"],
+    )
+    try:
+        context = build_minimal_advisor_context(
+            analysis=matches[0], finding_id=finding_id,
+            max_characters=advisor_config.max_context_characters,
+        )
+    except ValueError:
+        return api_error(status_code=422, code="ADVISOR_CONTEXT_UNAVAILABLE",
+                         message="The saved evidence exceeds the advisor context budget.")
+    try:
+        advice = CodexAdvisor(advisor_config).advise(context)
+    except urllib.error.HTTPError as error:
+        if error.code == 429:
+            return api_error(status_code=503, code="ADVISOR_QUOTA_UNAVAILABLE",
+                             message="The configured AI project has no available API quota or credits.")
+        return api_error(status_code=503, code="ADVISOR_UNAVAILABLE",
+                         message="The advisory provider did not return valid advice.")
+    except (AdvisorUnavailable, urllib.error.URLError, TimeoutError, OSError,
+            ValueError):
+        return api_error(status_code=503, code="ADVISOR_UNAVAILABLE",
+                         message="The advisory provider did not return valid advice.")
+    return jsonify({"request_id": g.request_id, "analysis_id": normalized_id,
+                    "finding_id": finding_id, "file_path": file_path,
+                    "context_budget": context["budget"], "result": advice})
 
 
 @api.post("/v1/analyses/<analysis_id>/repair-proposal")

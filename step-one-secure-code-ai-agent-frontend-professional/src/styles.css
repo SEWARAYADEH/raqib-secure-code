@@ -4754,6 +4754,46 @@ select {
 .advisor-drawer-head h2 { margin: 6px 0 0; }
 .advisor-drawer-body { display: grid; align-content: start; justify-items: start; gap: 16px; padding: 28px 26px; overflow-y: auto; }
 .advisor-drawer-body p { margin: 0; color: #b2c5d5; line-height: 1.65; }
+.advisor-drawer-body > .button { max-width: 100%; }
+.advisor-response { display: grid; gap: 16px; width: 100%; padding: 18px; border: 1px solid #31526c; border-radius: 12px; background: #102940; overflow-wrap: anywhere; }
+.advisor-response section { display: grid; gap: 7px; }
+.advisor-response h3 { margin: 0; font-size: .9rem; }
+.advisor-response ul { display: grid; gap: 6px; margin: 0; padding-inline-start: 20px; color: #c5d6e5; font-size: .82rem; }
+.advisor-response small { color: #9db4c9; }
+.analysis-workflow-layout { display: grid; grid-template-columns: minmax(205px, 245px) minmax(0, 1fr); align-items: start; gap: 24px; }
+.analysis-workflow-content { min-width: 0; }
+.analysis-workflow-layout .recorded-scan-flow { position: sticky; top: 82px; }
+.analysis-workflow-layout .recorded-scan-flow > div { display: grid; }
+.analysis-workflow-layout .recorded-scan-flow ol { grid-template-columns: 1fr; }
+.analysis-workflow-layout .recorded-scan-flow li { min-height: 56px; }
+.analysis-workflow-layout .recorded-scan-flow li:not(:last-child)::after { content: '↓'; top: auto; bottom: -15px; inset-inline-end: 50%; }
+.analysis-workflow-content .result-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; }
+.finding-evidence-layout { display: grid; grid-template-columns: minmax(180px, 220px) minmax(0, 1fr); align-items: start; gap: 22px; }
+.finding-evidence-main { display: grid; gap: 20px; min-width: 0; }
+.finding-stage-rail { position: sticky; top: 82px; padding: 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.finding-stage-rail > strong { display: block; font-size: .9rem; }
+.finding-stage-rail > p { margin: 5px 0 16px; color: var(--muted); font-size: .75rem; }
+.finding-stage-rail ol { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.finding-stage-rail button { display: grid; gap: 3px; width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 7px; background: transparent; color: var(--text); text-align: start; cursor: pointer; }
+.finding-stage-rail button:hover, .finding-stage-rail button:focus-visible { border-color: #64c7ed; background: #102940; }
+.finding-stage-rail button.stage-observed { border-inline-start: 3px solid #64c7ed; }
+.finding-stage-rail button.stage-limited { color: var(--muted); }
+.finding-stage-rail button span { font-size: .72rem; font-weight: 800; }
+.finding-stage-rail button small { color: var(--muted); font-size: .66rem; overflow-wrap: anywhere; }
+.finding-evidence-main .evidence-section { grid-template-columns: 90px minmax(130px, 180px) minmax(0, 1fr); gap: 18px; padding: 22px; scroll-margin-top: 90px; }
+@media (max-width: 950px) {
+  .analysis-workflow-layout { grid-template-columns: 1fr; }
+  .analysis-workflow-layout .recorded-scan-flow { position: static; }
+  .analysis-workflow-content .result-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .finding-evidence-layout { grid-template-columns: 1fr; }
+  .finding-stage-rail { position: static; }
+  .finding-stage-rail ol { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 650px) {
+  .analysis-workflow-content .result-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .finding-stage-rail ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .finding-evidence-main .evidence-section { grid-template-columns: 1fr; }
+}
 @keyframes drawer-enter { from { opacity: .65; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes drawer-enter-rtl { from { opacity: .65; transform: translateX(-24px); } to { opacity: 1; transform: translateX(0); } }
 

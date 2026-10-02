@@ -41,6 +41,14 @@ export function getRepairEvidence(analysisId, findingId) {
   return apiRequest(`/api/v1/analyses/${encodeURIComponent(analysisId)}/repair-evidence/${encodeURIComponent(findingId)}`);
 }
 
+export function getFindingAdvice({ analysisId, findingId, filePath }) {
+  return apiRequest(`/api/v1/analyses/${encodeURIComponent(analysisId)}/findings/${encodeURIComponent(findingId)}/advice`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ file_path: filePath }),
+  });
+}
+
 export function requestEmailChallenge(email) {
   return apiRequest('/api/v1/auth/email-challenges', {
     method: 'POST',

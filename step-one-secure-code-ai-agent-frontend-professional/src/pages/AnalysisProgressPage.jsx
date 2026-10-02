@@ -52,6 +52,21 @@ function resultCandidates(result) {
   );
 }
 
+function AnalysisStageRail({ result, ar }) {
+  const files = result.files ?? [result];
+  const stages = [
+    ['Upload', 'SAFE_INTAKE'], ['Parse', 'PARSING'], ['Trace', 'DATA_FLOW_TRACE'],
+    ['Finding', 'SECURITY_ANALYSIS'], ['Verify', 'EXPLOITABILITY_VERIFICATION'],
+  ].map(([label, stage]) => {
+    const statuses = files.map((file) => file.pipeline?.stages?.find((item) => item.name === stage)?.status ?? 'UNRESOLVED');
+    return { label, status: statuses.every((item) => item === statuses[0]) ? (statuses[0] ?? 'UNRESOLVED') : 'MIXED' };
+  });
+  return <aside className="recorded-scan-flow" aria-label={ar ? 'حالة مراحل التحليل المحفوظة' : 'Recorded analysis stage states'}>
+    <div><strong>{ar ? 'مراحل التحليل' : 'Analysis stages'}</strong><small>{ar ? 'حالات فعلية من المحرك المحفوظ' : 'Engine-reported saved states'}</small></div>
+    <ol>{stages.map(({ label, status }) => <li className={['COMPLETED', 'CANDIDATES_OBSERVED', 'COMPLETED_NO_CANDIDATE'].includes(status) ? 'stage-observed' : 'stage-limited'} key={label}><b>{label}</b><small>{status.replaceAll('_', ' ')}</small></li>)}</ol>
+  </aside>;
+}
+
 function ResultOverview({ payload, ar, navigate }) {
   const result = payload.result;
   const rawFiles = result.files ?? [result];
@@ -70,19 +85,8 @@ function ResultOverview({ payload, ar, navigate }) {
     [ar ? 'المصارف' : 'Sinks', rawFiles.reduce((sum, file) => sum + (file.security_semantics?.counts?.sinks ?? 0), 0)],
     [ar ? 'مرشحات أمنية' : 'Security candidates', candidates.length],
   ];
-  const flow = [
-    ['Upload', 'SAFE_INTAKE'], ['Parse', 'PARSING'], ['Trace', 'DATA_FLOW_TRACE'],
-    ['Finding', 'SECURITY_ANALYSIS'], ['Verify', 'EXPLOITABILITY_VERIFICATION'],
-  ].map(([label, stage]) => {
-    const statuses = rawFiles.map((file) => file.pipeline?.stages?.find((item) => item.name === stage)?.status ?? 'UNRESOLVED');
-    return { label, status: statuses.every((item) => item === statuses[0]) ? (statuses[0] ?? 'UNRESOLVED') : 'MIXED' };
-  });
   const analysisId = payload.record?.persisted ? payload.record.analysis_id : null;
   return <>
-    <section className="recorded-scan-flow" aria-label={ar ? 'حالة مراحل التحليل المحفوظة' : 'Recorded analysis stage states'}>
-      <div><strong>{ar ? 'مسار التحليل المحفوظ' : 'Recorded scan flow'}</strong><small>{ar ? 'الحالات من المحرك، وليست تقديرًا لحظيًا للتقدم.' : 'Engine-reported states, not estimated live progress.'}</small></div>
-      <ol>{flow.map(({ label, status }) => <li className={status === 'COMPLETED' || status === 'CANDIDATES_OBSERVED' || status === 'COMPLETED_NO_CANDIDATE' ? 'stage-observed' : 'stage-limited'} key={label}><b>{label}</b><small>{status.replaceAll('_', ' ')}</small></li>)}</ol>
-    </section>
     <section className="result-overview" aria-label={ar ? 'ملخص التحليل' : 'Analysis summary'}>{values.map(([label, value]) => <div key={label}><span>{label}</span><strong dir="auto">{typeof value === 'number' ? <AnimatedCount value={value} /> : value}</strong></div>)}</section>
     <section className="result-findings"><h2>{ar ? 'المشاكل المكتشفة' : 'Detected problems'}</h2><p>{ar ? 'هذه مرشحات ساكنة، وليست ثغرات مثبتة أو إصلاحات مغلقة.' : 'These are static candidates, not verified vulnerabilities or closed repairs.'}</p>
       {candidates.length ? <div className="result-finding-list">{candidates.map(({ finding, path }) => <article key={`${path}:${finding.id}`}><div><strong>{finding.pack_assessment?.pack?.replaceAll('_', ' ') ?? finding.sink?.category ?? 'Security candidate'}</strong><small dir="ltr">{path} · {finding.scope?.function ?? 'Unresolved'}() · Line {finding.sink?.start_line ?? 'Unknown'}</small></div><span className="candidate-state">CANDIDATE</span>{analysisId && <button className="button button-ghost compact-button" onClick={() => navigate(`/projects/${encodeURIComponent(analysisId)}/findings/${encodeURIComponent(finding.id)}?${new URLSearchParams({ file: path })}`)} type="button">{ar ? 'افتح الدليل' : 'Inspect evidence'}</button>}</article>)}</div> : <div className="analysis-empty">{ar ? 'لا توجد مرشحات ضمن النطاق المدعوم. هذا لا يثبت خلو المشروع من الثغرات.' : 'No candidates in supported coverage. This does not prove the project is safe.'}</div>}
@@ -305,6 +309,9 @@ export default function AnalysisProgressPage() {
           <div><span className="eyebrow">{ar ? 'نتيجة المحرك الحقيقي' : 'Live engine result'}</span><h1>{ar ? 'اكتمل التحليل الساكن' : 'Static analysis complete'}</h1><p>{ar ? 'النتائج أدلة هندسية مرصودة. لا يعتبر النظام أي مسار ثغرة أو إثبات استغلال في هذه المرحلة.' : 'Results are observed engineering evidence. No path is treated as a vulnerability or exploit proof at this stage.'}</p></div>
           <StatusBadge tone={totalPaths ? 'warning' : 'neutral'}>{totalPaths} {ar ? 'مسار مرصود' : 'observed paths'}</StatusBadge>
         </div>
+        <div className="analysis-workflow-layout">
+        <AnalysisStageRail ar={ar} result={payload.result} />
+        <div className="analysis-workflow-content">
         <ResultOverview ar={ar} navigate={navigate} payload={payload} />
         <details className="result-technical-details"><summary>{ar ? 'افتح الأدلة التقنية التفصيلية' : 'Open detailed technical evidence'}</summary>
         <div className="analysis-proof-strip">
@@ -334,6 +341,8 @@ export default function AnalysisProgressPage() {
           ) : null}
           <button className="button button-ghost" onClick={() => navigate('/analysis/new')} type="button"><Icon name="scan" />{ar ? 'تحليل جديد' : 'New analysis'}</button>
           <button className="button button-primary" onClick={() => navigate('/projects')} type="button">{ar ? 'العودة للمشاريع' : 'Back to projects'}<Icon name="arrow" /></button>
+        </div>
+        </div>
         </div>
       </section>
     </AppShell>

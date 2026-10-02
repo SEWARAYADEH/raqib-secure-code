@@ -243,6 +243,9 @@ def test_analysis_options_are_real_and_safety_bounded(client):
     stages = {item["id"]: item["status"] for item in payload["workflow_stages"]}
     assert stages["UPLOAD"] == "AVAILABLE"
     assert stages["VERIFY"] == "NOT_AVAILABLE"
+    assert stages["FIX"] == "PARTIAL"
+    assert stages["TEST"] == "PARTIAL"
+    assert stages["RE_VERIFY"] == "PARTIAL"
     assert stages["EVIDENCE"] == "NOT_AVAILABLE"
 
     safety = payload["safety"]

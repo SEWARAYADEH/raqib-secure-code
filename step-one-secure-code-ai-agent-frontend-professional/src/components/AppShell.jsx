@@ -1,14 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import logo from '../assets/raqib-logo.png';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
+import AdvisorDrawer from './AdvisorDrawer';
 import Icon from './Icon';
 
 function projectIdFromPath(pathname) {
   return pathname.match(/^\/projects\/([^/]+)/)?.[1]
     ?? pathname.match(/^\/analysis\/progress\/([^/]+)/)?.[1]
     ?? null;
+}
+
+function findingIdFromPath(pathname) {
+  const encoded = pathname.match(/^\/projects\/[^/]+\/findings\/([^/]+)/)?.[1];
+  if (!encoded) return null;
+  try { return decodeURIComponent(encoded); } catch { return null; }
 }
 
 export default function AppShell({ children }) {
@@ -18,8 +25,9 @@ export default function AppShell({ children }) {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [advisorOpen, setAdvisorOpen] = useState(false);
-  const advisorDialog = useRef(null);
   const projectId = projectIdFromPath(location.pathname);
+  const findingId = findingIdFromPath(location.pathname);
+  const filePath = new URLSearchParams(location.search).get('file');
   const ar = language === 'ar';
 
   const baseItems = [
@@ -46,13 +54,6 @@ export default function AppShell({ children }) {
     signOut();
     navigate('/login', { replace: true });
   };
-
-  useEffect(() => {
-    const dialog = advisorDialog.current;
-    if (!dialog) return;
-    if (advisorOpen && !dialog.open) dialog.showModal();
-    if (!advisorOpen && dialog.open) dialog.close();
-  }, [advisorOpen]);
 
   return (
     <div className={`app-shell ${ar ? 'font-ar' : ''}`} dir={direction}>
@@ -133,7 +134,7 @@ export default function AppShell({ children }) {
 
           <div className="topbar-actions">
             <span className="mock-label">{ar ? 'دليل ساكن' : 'Static evidence'}</span>
-            <button aria-controls="advisor-drawer" aria-expanded={advisorOpen} className="icon-button text-button" onClick={() => setAdvisorOpen(true)} type="button"><Icon name="robot" size={17} />{ar ? 'محادثة AI' : 'AI chat'}</button>
+            <button aria-controls="advisor-drawer" aria-expanded={advisorOpen} className="icon-button text-button" onClick={() => setAdvisorOpen(true)} type="button"><Icon name="robot" size={17} />{ar ? 'مراجعة AI' : 'AI review'}</button>
             <button className="icon-button text-button" onClick={toggleLanguage} type="button">
               <Icon name="language" size={17} />
               {t('language')}
@@ -143,10 +144,7 @@ export default function AppShell({ children }) {
 
         <main className="content">{children}</main>
       </div>
-      <dialog aria-labelledby="advisor-drawer-title" className="advisor-drawer" id="advisor-drawer" onClose={() => setAdvisorOpen(false)} onClick={(event) => { if (event.target === advisorDialog.current) setAdvisorOpen(false); }} ref={advisorDialog}>
-        <div className="advisor-drawer-head"><div><span className="eyebrow">RAQEEB / AI</span><h2 id="advisor-drawer-title">{ar ? 'محادثة AI' : 'AI chat'}</h2></div><button aria-label={ar ? 'إغلاق المحادثة' : 'Close chat'} className="icon-button" onClick={() => setAdvisorOpen(false)} type="button"><Icon name="close" /></button></div>
-        <div className="advisor-drawer-body"><span className="candidate-state">NOT AVAILABLE</span><p>{ar ? 'واجهة المحادثة غير متصلة حاليًا بمسار إرسال آمن في الـAPI. لا يُنتج رقيب ردودًا أو إصلاحات بالذكاء الاصطناعي من هذه النافذة.' : 'No secure chat endpoint is available in the current API. This drawer does not generate AI answers or repairs.'}</p><p>{ar ? 'يمكنك مراجعة حالة المفتاح والموديل على الخادم في إعدادات التحليل. تظل أدلة المحرك الساكن هي مصدر حالة النتيجة.' : 'Review server-side key and model status in Configuration. Saved static evidence remains the source of finding status.'}</p><button className="button button-secondary" onClick={() => { setAdvisorOpen(false); navigate('/configuration'); }} type="button">{ar ? 'إعدادات الربط' : 'Connection settings'}</button></div>
-      </dialog>
+      <AdvisorDrawer analysisId={projectId} ar={ar} filePath={filePath} findingId={findingId} onClose={() => setAdvisorOpen(false)} onSettings={() => { setAdvisorOpen(false); navigate('/configuration'); }} open={advisorOpen} />
     </div>
   );
 }
