@@ -1,9 +1,7 @@
-"""Runtime verification is unavailable until an isolated executor exists.
+"""Expose the capability of the installed executor, not a config flag."""
 
-A configuration flag cannot itself establish network, process, filesystem,
-identity, and resource isolation. Keep this gate fail-closed.
-"""
+from app.runtime_verifier import UnavailableRuntimeVerifier
 
 
 def verification_runtime_available() -> bool:
-    return False
+    return UnavailableRuntimeVerifier().capability()["available"]

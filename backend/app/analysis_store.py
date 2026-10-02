@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import sqlite3
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -177,6 +178,56 @@ class AnalysisStore:
             )
         return summaries
 
+    def create_repair_evidence(self, *, analysis_id: str, owner_subject: str,
+                               proposal: dict) -> dict:
+        record = self.get(analysis_id)
+        if record["owner_subject"] != owner_subject:
+            raise PermissionError("The analysis belongs to another principal.")
+        finding_id = proposal["finding_id"]
+        if not any(item["id"] == finding_id for item in
+                   record["result"]["security_analysis"]["candidates"]):
+            raise ValueError("The finding is not in the saved analysis.")
+        if proposal["original_sha256"] != record["artifact_sha256"]:
+            raise ValueError("The repair input does not match the saved artifact.")
+        evidence_id = str(uuid.uuid4())
+        created_at = datetime.now(timezone.utc).isoformat()
+        evidence = {key: value for key, value in proposal.items()
+                    if key != "updated_source"}
+        payload_json = _canonical_json(evidence)
+        mac = self._repair_mac(evidence_id, analysis_id, owner_subject,
+                               finding_id, created_at, payload_json)
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO repair_evidence VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (evidence_id, analysis_id, owner_subject, finding_id,
+                 created_at, payload_json, mac),
+            )
+        return {"evidence_id": evidence_id, "analysis_id": analysis_id,
+                "finding_id": finding_id, "created_at": created_at,
+                "integrity": "HMAC-SHA256", "evidence": evidence}
+
+    def latest_repair_evidence(self, *, analysis_id: str, owner_subject: str,
+                               finding_id: str) -> dict | None:
+        record = self.get(analysis_id)
+        if record["owner_subject"] != owner_subject:
+            raise PermissionError("The analysis belongs to another principal.")
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM repair_evidence WHERE analysis_id = ? AND owner_subject = ? "
+                "AND finding_id = ? ORDER BY created_at DESC, evidence_id DESC LIMIT 1",
+                (analysis_id, owner_subject, finding_id),
+            ).fetchone()
+        if row is None:
+            return None
+        expected = self._repair_mac(row["evidence_id"], row["analysis_id"],
+                                    row["owner_subject"], row["finding_id"],
+                                    row["created_at"], row["payload_json"])
+        if not hmac.compare_digest(row["integrity_mac"], expected):
+            raise AnalysisRecordIntegrityError(row["evidence_id"])
+        return {"evidence_id": row["evidence_id"], "analysis_id": analysis_id,
+                "finding_id": finding_id, "created_at": row["created_at"],
+                "integrity": "HMAC-SHA256", "evidence": json.loads(row["payload_json"])}
+
     def _initialize(self) -> None:
         with self._connect() as connection:
             connection.execute(
@@ -197,6 +248,31 @@ class AnalysisStore:
                 ON analysis_records (owner_subject, created_at DESC)
                 """
             )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS repair_evidence (
+                    evidence_id TEXT PRIMARY KEY,
+                    analysis_id TEXT NOT NULL REFERENCES analysis_records(analysis_id),
+                    owner_subject TEXT NOT NULL,
+                    finding_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    integrity_mac TEXT NOT NULL
+                )"""
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS repair_evidence_lookup ON repair_evidence "
+                "(analysis_id, owner_subject, finding_id, created_at DESC)"
+            )
+
+    def _repair_mac(self, evidence_id: str, analysis_id: str, owner_subject: str,
+                    finding_id: str, created_at: str, payload_json: str) -> str:
+        message = _canonical_json({
+            "evidence_id": evidence_id, "analysis_id": analysis_id,
+            "owner_subject": owner_subject, "finding_id": finding_id,
+            "created_at": created_at,
+            "payload_sha256": hashlib.sha256(payload_json.encode("utf-8")).hexdigest(),
+        }).encode("utf-8")
+        return hmac.new(self.integrity_key, message, hashlib.sha256).hexdigest()
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(

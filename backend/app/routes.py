@@ -417,4 +417,45 @@ def create_repair_proposal(analysis_id: str):
     except (RepairNotAvailable, SourceFileValidationError, AnalysisValidationError) as exc:
         return api_error(status_code=422, code="REPAIR_NOT_AVAILABLE",
                          message=str(exc))
-    return jsonify({"request_id": g.request_id, "proposal": proposal})
+    saved_evidence = store.create_repair_evidence(
+        analysis_id=normalized_id, owner_subject=principal.subject,
+        proposal=proposal,
+    )
+    return jsonify({"request_id": g.request_id, "proposal": proposal,
+                    "saved_evidence": {key: saved_evidence[key] for key in
+                                       ("evidence_id", "created_at", "integrity")}})
+
+
+@api.get("/v1/analyses/<analysis_id>/repair-evidence/<finding_id>")
+def latest_repair_evidence(analysis_id: str, finding_id: str):
+    principal = resolve_analysis_principal()
+    if principal is None:
+        return api_error(status_code=401, code="ANALYSIS_ACCESS_DENIED",
+                         message="Analysis access is not authorized.")
+    if not principal.permits(SCOPE_ANALYSIS_READ):
+        return api_error(status_code=403, code="ANALYSIS_SCOPE_FORBIDDEN",
+                         message="The principal cannot read repair evidence.")
+    try:
+        normalized_id = str(uuid.UUID(analysis_id))
+    except ValueError:
+        return api_error(status_code=404, code="ANALYSIS_NOT_FOUND",
+                         message="The analysis does not exist.")
+    store = current_app.extensions.get("analysis_store")
+    if store is None:
+        return api_error(status_code=503, code="ANALYSIS_STORE_DISABLED",
+                         message="Saved analysis is required.")
+    try:
+        saved = store.latest_repair_evidence(
+            analysis_id=normalized_id, owner_subject=principal.subject,
+            finding_id=finding_id,
+        )
+    except AnalysisRecordNotFoundError:
+        return api_error(status_code=404, code="ANALYSIS_NOT_FOUND",
+                         message="The analysis does not exist.")
+    except PermissionError:
+        return api_error(status_code=403, code="ANALYSIS_RECORD_FORBIDDEN",
+                         message="The analysis belongs to another principal.")
+    except AnalysisRecordIntegrityError:
+        return api_error(status_code=500, code="ANALYSIS_INTEGRITY_FAILURE",
+                         message="The repair evidence failed integrity verification.")
+    return jsonify({"request_id": g.request_id, "saved_evidence": saved})

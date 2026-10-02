@@ -4608,3 +4608,6 @@ select {
     padding: 28px;
   }
 }
+.closure-gates { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: .5rem; }
+.closure-gates li { display: flex; justify-content: space-between; gap: 1rem; padding: .55rem .75rem; border: 1px solid var(--border, #29405d); border-radius: .5rem; }
+.closure-gates b { white-space: nowrap; }

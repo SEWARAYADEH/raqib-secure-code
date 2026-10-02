@@ -37,6 +37,10 @@ export function createRepairProposal({ analysisId, findingId, file }) {
   });
 }
 
+export function getRepairEvidence(analysisId, findingId) {
+  return apiRequest(`/api/v1/analyses/${encodeURIComponent(analysisId)}/repair-evidence/${encodeURIComponent(findingId)}`);
+}
+
 export function requestEmailChallenge(email) {
   return apiRequest('/api/v1/auth/email-challenges', {
     method: 'POST',

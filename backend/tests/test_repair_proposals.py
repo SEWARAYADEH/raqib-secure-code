@@ -1,4 +1,5 @@
 import io
+import sqlite3
 
 import pytest
 
@@ -49,6 +50,7 @@ def test_sql_proposal_changes_two_lines_and_remains_unverified():
     assert proposal["static_retrace"]["after_paths"][0]["assessment"]["basis"] == "INPUT_ONLY_IN_LATER_ARGUMENT"
     assert proposal["functional_test"] == "NOT_RUN"
     assert proposal["verified_closed"] is False
+    assert proposal["closure_evaluation"]["status"] == "CLOSURE_INCOMPLETE"
     assert b"cursor.execute(query)" in SQL_SOURCE
 
 
@@ -89,15 +91,34 @@ def test_repair_api_requires_exact_original_and_returns_real_patch(tmp_path):
     assert mismatch.status_code == 409
     response = client.post(url, data={
         "file": (io.BytesIO(SQL_SOURCE), "case.py"), "finding_id": finding_id,
+        "verified_closed": "true",
     }, content_type="multipart/form-data")
     assert response.status_code == 200
     proposal = response.get_json()["proposal"]
     assert proposal["status"] == "PROPOSED_UNVERIFIED"
     assert proposal["original_sha256"] == uploaded["result"]["artifact"]["sha256"]
     assert proposal["verified_closed"] is False
+    assert proposal["closure_evaluation"]["verified_closed"] is False
+    stored = client.get(f"/api/v1/analyses/{analysis_id}/repair-evidence/{finding_id}")
+    assert stored.status_code == 200
+    assert stored.get_json()["saved_evidence"]["evidence"]["closure_evaluation"]["verified_closed"] is False
+    assert "updated_source" not in stored.get_json()["saved_evidence"]["evidence"]
+    with pytest.raises(PermissionError):
+        app.extensions["analysis_store"].latest_repair_evidence(
+            analysis_id=analysis_id, owner_subject="another-owner",
+            finding_id=finding_id,
+        )
 
     oversized = client.post(url, data={
         "file": (io.BytesIO(SQL_SOURCE + b" " * (256 * 1024)), "case.py"),
         "finding_id": finding_id,
     }, content_type="multipart/form-data")
     assert oversized.status_code == 413
+
+    with sqlite3.connect(tmp_path / "analysis.sqlite3") as database:
+        database.execute(
+            "UPDATE repair_evidence SET payload_json = ? WHERE analysis_id = ?",
+            ('{"verified_closed":true}', analysis_id),
+        )
+    tampered = client.get(f"/api/v1/analyses/{analysis_id}/repair-evidence/{finding_id}")
+    assert tampered.status_code == 500

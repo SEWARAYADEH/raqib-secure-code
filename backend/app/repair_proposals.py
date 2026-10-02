@@ -11,9 +11,12 @@ import difflib
 import hashlib
 import re
 import shlex
+from datetime import datetime, timezone
 
 from app.analysis_service import analyze_source_file
+from app.closure_evaluator import evaluate_closure
 from app.intake import inspect_source_file
+from app.trusted_sql_functional import test_trusted_sql_normal_input
 
 
 class RepairNotAvailable(ValueError):
@@ -69,8 +72,20 @@ def propose_repair(filename: str, content: bytes, finding_id: str) -> dict:
         source.splitlines(keepends=True), updated.splitlines(keepends=True),
         fromfile=filename, tofile=f"{filename}.proposed",
     ))
-    return {
+    root_cause = {
+        "status": "STATICALLY_SUPPORTED" if category == "sql_execution_candidate" else "CANDIDATE",
+        "category": "SQL_TEXT_CONCATENATION" if category == "sql_execution_candidate" else "SHELL_COMMAND_CONSTRUCTION",
+        "finding_id": finding_id,
+        "source_location": {"file": filename, "line": finding["source"]["start_line"]},
+        "sink_location": {"file": filename, "line": finding["sink"]["start_line"]},
+        "evidence": finding["trace"],
+        "explanation": "Observed input is concatenated into SQL text before execution; the reviewed patch binds it as a parameter." if category == "sql_execution_candidate" else "Observed input enters a shell command string.",
+        "runtime_confirmed": False,
+    }
+    proposal = {
         "status": "PROPOSED_UNVERIFIED",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "analyzer_version": original["analyzer_version"],
         "original_sha256": intake["sha256"],
         "updated_sha256": hashlib.sha256(updated.encode("utf-8")).hexdigest(),
         "finding_id": finding_id,
@@ -83,10 +98,21 @@ def propose_repair(filename: str, content: bytes, finding_id: str) -> dict:
             "status": "NO_MATCH_OBSERVED" if not remaining else "CANDIDATE_REMAINS",
         },
         "static_retrace": static_retrace,
+        "root_cause": root_cause,
         "functional_test": "NOT_RUN",
+        "functional_evidence": {"status": "NOT_AVAILABLE", "reason": "NO_TRUSTED_FUNCTIONAL_SCENARIO"},
         "runtime_replay": "NOT_RUN",
         "verified_closed": False,
     }
+    if category == "sql_execution_candidate":
+        functional = test_trusted_sql_normal_input(intake["sha256"], proposal)
+        proposal["functional_evidence"] = functional
+        proposal["functional_test"] = functional["status"] if functional["status"] != "NOT_AVAILABLE" else "NOT_RUN"
+    proposal["closure_evaluation"] = evaluate_closure(
+        finding=finding, proposal=proposal, functional=proposal["functional_evidence"],
+    )
+    proposal["verified_closed"] = proposal["closure_evaluation"]["verified_closed"]
+    return proposal
 
 
 def _sqlite_edits(source: str, function: ast.AST, finding: dict) -> dict[int, str]:

@@ -31,6 +31,7 @@ from flask import current_app, has_app_context
 
 
 ANALYSIS_SCHEMA_VERSION = "1.0"
+ANALYZER_VERSION = "0.2.0"
 
 
 class AnalysisValidationError(ValueError):
@@ -131,6 +132,7 @@ def analyze_source_file(
 
     return {
         "schema_version": ANALYSIS_SCHEMA_VERSION,
+        "analyzer_version": ANALYZER_VERSION,
         "analysis": {
             "scope": "FILE",
             "execution_policy": "NEVER_EXECUTE_SOURCE",
