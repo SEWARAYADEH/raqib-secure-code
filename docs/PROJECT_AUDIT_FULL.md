@@ -10,7 +10,7 @@ The private full-file inventory is `backend/instance/project_inventory_2026-10-0
 - Routes, imports, calls, source/sink observations, narrow static traces, and candidate findings. Unknown relationships stay unresolved.
 - SQL Injection and Command Injection have partial static analysis. Path Traversal, XSS, and IDOR packs are not implemented.
 - Authenticated, owner-scoped saved analyses with HMAC integrity. Three requested demo accounts are seeded only in the ignored local password database, not in public source.
-- Trusted Python SQLite and JavaScript reference repairs pass functional/argument-separation checks. Arbitrary uploaded-project patch generation and verified closure are not available.
+- Narrow Python SQLite and subprocess findings can produce a separate encrypted patched artifact with SHA-256, static re-scan/re-trace, and owner-scoped downloads. Uploaded code is not executed on the host; runtime verification, functional execution, replay, and verified closure remain unavailable without reviewed isolation.
 - The supplied Raqeeb artwork is used in the existing public hero; the live format and pack labels still come from the backend.
 
 ## Verification boundary for goals 1–20
@@ -21,8 +21,8 @@ The private full-file inventory is `backend/instance/project_inventory_2026-10-0
 | 8–14: sources, sinks, flow, context, hybrid analysis, standards | Partial | Static observations/candidates and explicit unresolved states. |
 | 15: runtime reachability/exploitability | Not available | Uploaded projects are never run in an isolation runtime. |
 | 16: root cause | Candidate only | Hypotheses are not validated root-cause proof. |
-| 17–19: patch, functional test, replay, re-scan/re-trace | Reference fixtures only | Known trusted SQL examples pass; user uploads have no repair/closure pipeline. |
-| 20: closure evidence and updated project download | Not available | Reports preserve candidate status; no updated artifact is offered without verification. |
+| 17–19: patch, functional test, replay, re-scan/re-trace | Partial | Narrow Python patches and static re-scan/re-trace work; functional execution and replay require isolation. |
+| 20: closure evidence and updated project download | Partial | Patched files and security reports are downloadable; closure remains incomplete without runtime gates. |
 
 ## Source tree: every Git-tracked file and this new asset
 

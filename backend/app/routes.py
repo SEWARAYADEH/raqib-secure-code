@@ -1,4 +1,6 @@
 import hashlib
+import io
+import json
 import urllib.error
 import uuid
 
@@ -8,7 +10,9 @@ from flask import (
     g,
     jsonify,
     request,
+    send_file,
 )
+from werkzeug.utils import secure_filename
 
 from app.api_errors import api_error
 from app.analysis_store import (
@@ -38,6 +42,7 @@ from app.intake import (
     MAX_SOURCE_FILE_BYTES,
     SourceFileValidationError,
 )
+from app.finding_lifecycle import build_finding_lifecycle
 from app.security_packs.registry import pack_coverage
 from app.repair_proposals import RepairNotAvailable, propose_repair
 from app.runtime_capabilities import verification_runtime_available
@@ -162,6 +167,10 @@ def configuration_status():
             else "NOT_ENABLED",
             "analysis_records": "OWNER_SCOPED_APPEND_ONLY",
             "uploaded_source_retention": "TEMPORARY_WORKSPACE_ONLY",
+            "patched_artifact_retention": (
+                "OWNER_SCOPED_AES_GCM" if config["ANALYSIS_STORE_ENABLED"]
+                else "NOT_ENABLED"
+            ),
             "original_overwritten": False,
         },
         "email": {
@@ -551,3 +560,90 @@ def latest_repair_evidence(analysis_id: str, finding_id: str):
         return api_error(status_code=500, code="ANALYSIS_INTEGRITY_FAILURE",
                          message="The repair evidence failed integrity verification.")
     return jsonify({"request_id": g.request_id, "saved_evidence": saved})
+
+
+@api.get("/v1/analyses/<analysis_id>/findings/<finding_id>/lifecycle")
+def finding_lifecycle(analysis_id: str, finding_id: str):
+    """One owner-scoped lifecycle contract and its authenticated downloads."""
+    principal = resolve_analysis_principal()
+    if principal is None:
+        return api_error(status_code=401, code="ANALYSIS_ACCESS_DENIED",
+                         message="Analysis access is not authorized.")
+    if not principal.permits(SCOPE_ANALYSIS_READ):
+        return api_error(status_code=403, code="ANALYSIS_SCOPE_FORBIDDEN",
+                         message="The principal cannot read this finding.")
+    try:
+        normalized_id = str(uuid.UUID(analysis_id))
+    except ValueError:
+        return api_error(status_code=404, code="ANALYSIS_NOT_FOUND",
+                         message="The analysis does not exist.")
+    store = current_app.extensions.get("analysis_store")
+    if store is None:
+        return api_error(status_code=503, code="ANALYSIS_STORE_DISABLED",
+                         message="Saved analysis is required.")
+    try:
+        record = store.get(normalized_id)
+        if record["owner_subject"] != principal.subject:
+            return api_error(status_code=403, code="ANALYSIS_RECORD_FORBIDDEN",
+                             message="The analysis belongs to another principal.")
+        file_path = request.args.get("file", "")
+        if len(file_path) > 512:
+            return api_error(status_code=400, code="INVALID_FINDING_SELECTOR",
+                             message="The file selector is too long.")
+        files = record["result"].get("files") or [record["result"]]
+        matches = [(file, candidate) for file in files
+                   if not file_path or (file.get("artifact", {}).get("relative_path")
+                                        or file.get("artifact", {}).get("filename")) == file_path
+                   for candidate in file.get("security_analysis", {}).get("candidates", [])
+                   if candidate.get("id") == finding_id]
+        if len(matches) != 1:
+            return api_error(status_code=404, code="FINDING_NOT_FOUND",
+                             message="The finding is missing or ambiguous.")
+        file, finding = matches[0]
+        saved = store.latest_repair_evidence(
+            analysis_id=normalized_id, owner_subject=principal.subject,
+            finding_id=finding_id,
+        ) if record["result"].get("analysis", {}).get("scope") == "FILE" else None
+        lifecycle = build_finding_lifecycle(
+            finding=finding, analysis=file, saved_repair=saved,
+        )
+        download = request.args.get("download")
+        if download == "patched":
+            artifact = store.get_patched_artifact(
+                analysis_id=normalized_id, owner_subject=principal.subject,
+                finding_id=finding_id,
+            )
+            if artifact is None:
+                return api_error(status_code=404, code="PATCHED_ARTIFACT_NOT_FOUND",
+                                 message="No saved patched artifact is available.")
+            filename = secure_filename(file["artifact"]["filename"])
+            stem = filename.rsplit(".", 1)[0] or "patched"
+            response = send_file(io.BytesIO(artifact[0]), mimetype="text/x-python",
+                                 as_attachment=True, download_name=f"{stem}.proposed.py")
+        elif download == "report":
+            report = {"analysis_id": normalized_id,
+                      "created_at": record["created_at"],
+                      "artifact": file.get("artifact"),
+                      "finding": finding,
+                      "lifecycle": lifecycle}
+            response = send_file(io.BytesIO(json.dumps(report, ensure_ascii=False,
+                                                      indent=2).encode("utf-8")),
+                                 mimetype="application/json", as_attachment=True,
+                                 download_name=f"raqib-security-report-{normalized_id}.json")
+        elif download is None:
+            return jsonify({"request_id": g.request_id, "analysis_id": normalized_id,
+                            "file_path": file.get("artifact", {}).get("relative_path")
+                            or file.get("artifact", {}).get("filename"),
+                            "lifecycle": lifecycle})
+        else:
+            return api_error(status_code=400, code="INVALID_DOWNLOAD",
+                             message="The requested download is not available.")
+    except AnalysisRecordNotFoundError:
+        return api_error(status_code=404, code="ANALYSIS_NOT_FOUND",
+                         message="The analysis does not exist.")
+    except AnalysisRecordIntegrityError:
+        return api_error(status_code=500, code="ANALYSIS_INTEGRITY_FAILURE",
+                         message="The saved evidence failed integrity verification.")
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response

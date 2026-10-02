@@ -56,3 +56,5 @@ Required before `VERIFIED_CLOSED`:
 - `VERIFIED_CLOSED`: all closure gates passed.
 
 No UI element should imply a stronger state than the stored evidence supports.
+
+`GET /api/v1/analyses/<analysis_id>/findings/<finding_id>/lifecycle` is the authoritative per-finding lifecycle contract. Its optional authenticated downloads return the encrypted-at-rest patched artifact or a JSON security report. The report never treats a proposed patch, zero candidates, syntax success, or static re-scan as verified closure.

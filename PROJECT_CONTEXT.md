@@ -75,6 +75,8 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 
 ## Current module map
 
+Latest lifecycle continuation: supported single-file SQL/command findings can persist a complete patched copy encrypted at rest, download it without overwriting the original, and download a finding security report. The backend lifecycle endpoint is the only status source used by Finding Detail. Static re-scan/re-trace can pass, but runtime verification, functional execution, and replay remain `NOT_AVAILABLE` because this host has no reviewed Docker/Podman/WSL isolation runtime; closure therefore remains `CLOSURE_INCOMPLETE`.
+
 - `backend/app/intake.py`: bounded UTF-8 source intake and artifact metadata.
 - `backend/app/language_detection.py`: extension, shebang, and Tree-sitter syntax evidence with explicit conflict/unknown handling; only Python and JavaScript/JSX have parsers.
 - `backend/app/parser_engine.py`: Tree-sitter structure, assignments, calls, and arguments.
@@ -266,3 +268,9 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 - For the pinned SHA-256 of the checked-in 1,459-line synthetic fixture only, a benign existing-ID functional check compiles only the reviewed SQL function, uses a temporary SQLite database and Flask request context, and compares the actual returned row before and after the exact two-line patch. This is trusted fixture functionality evidence, not a sandbox, exploit replay, or proof about arbitrary uploaded projects.
 - The closure evaluator reports `CLOSURE_INCOMPLETE`: runtime verification before patch and same-scenario replay after patch are `NOT_AVAILABLE`. A static zero count, valid syntax, trusted normal-input PASS, or client-supplied `verified_closed=true` cannot promote a finding to `VERIFIED_CLOSED`.
 - The same saved analysis `a51fbf76-6eee-4bbf-9a40-4373370eab52` now has a persisted SQL repair-evidence record. Browser reload recovered structured root cause, diff, trusted functional PASS, static recheck/retrace, and closure gates from the owner-scoped API. Full checks after this change: 212 backend tests, four frontend tests, production build; the uploaded source remained untouched.
+
+## 2026-10-02 lifecycle artifact and isolation correction
+
+- The earlier trusted-fixture functional execution was removed from the production repair path because it ran selected Python on the host. Repair now reports functional verification and replay as `NOT_AVAILABLE` until a reviewed isolated executor exists.
+- Patched artifacts are stored separately from originals, encrypted with AES-GCM, bound to owner/finding/SHA-256, integrity-checked when read, and downloadable through the owner-scoped lifecycle endpoint. Security reports contain lifecycle evidence without embedding the patched source.
+- Finding Detail reads its lifecycle states from that backend endpoint. Static re-scan and re-trace can pass from persisted analyzer evidence, while runtime verification, functional testing, replay, and verified closure remain unavailable. Final checks: 217 backend tests, four frontend tests, and production build passed.

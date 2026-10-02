@@ -86,6 +86,10 @@ def create_app(config_overrides: dict | None = None):
             integrity_key=app.config[
                 "RECORD_INTEGRITY_KEY"
             ],
+            artifact_encryption_key=(
+                app.config.get("PATCH_ARTIFACT_ENCRYPTION_KEY")
+                or app.config["RECORD_INTEGRITY_KEY"]
+            ),
         )
 
     if app.config["EMAIL_VERIFICATION_ENABLED"]:
@@ -141,6 +145,9 @@ def _validate_security_config(app) -> None:
             "SECRET_KEY": app.config.get("SECRET_KEY"),
             "ANALYSIS_API_TOKEN": app.config.get("ANALYSIS_API_TOKEN"),
             "RECORD_INTEGRITY_KEY": app.config.get("RECORD_INTEGRITY_KEY"),
+            "PATCH_ARTIFACT_ENCRYPTION_KEY": app.config.get(
+                "PATCH_ARTIFACT_ENCRYPTION_KEY"
+            ),
             "EMAIL_VERIFICATION_HMAC_KEY": app.config.get(
                 "EMAIL_VERIFICATION_HMAC_KEY"
             ),
@@ -157,6 +164,10 @@ def _validate_security_config(app) -> None:
             raise RuntimeError(
                 "Production security configuration is missing or weak: "
                 f"{joined}"
+            )
+        if app.config["PATCH_ARTIFACT_ENCRYPTION_KEY"] == app.config["RECORD_INTEGRITY_KEY"]:
+            raise RuntimeError(
+                "Production patched-artifact encryption and record integrity keys must differ."
             )
         if not app.config["ANALYSIS_STORE_ENABLED"]:
             raise RuntimeError("Production requires immutable analysis storage.")

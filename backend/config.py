@@ -39,6 +39,9 @@ class Config:
     RECORD_INTEGRITY_KEY = os.getenv(
         "RECORD_INTEGRITY_KEY"
     )
+    PATCH_ARTIFACT_ENCRYPTION_KEY = os.getenv(
+        "PATCH_ARTIFACT_ENCRYPTION_KEY"
+    )
     WORKSPACE_ROOT = os.getenv("WORKSPACE_ROOT")
     EMAIL_VERIFICATION_ENABLED = os.getenv(
         "EMAIL_VERIFICATION_ENABLED",

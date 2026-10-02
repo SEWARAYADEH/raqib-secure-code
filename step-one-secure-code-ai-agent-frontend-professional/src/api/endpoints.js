@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { API_BASE_URL, apiRequest } from './client';
 
 export const getProjects = async () => {
   const response = await apiRequest('/api/v1/analyses');
@@ -39,6 +39,21 @@ export function createRepairProposal({ analysisId, findingId, file }) {
 
 export function getRepairEvidence(analysisId, findingId) {
   return apiRequest(`/api/v1/analyses/${encodeURIComponent(analysisId)}/repair-evidence/${encodeURIComponent(findingId)}`);
+}
+
+function findingLifecyclePath(analysisId, findingId, filePath, download) {
+  const query = new URLSearchParams();
+  if (filePath) query.set('file', filePath);
+  if (download) query.set('download', download);
+  return `/api/v1/analyses/${encodeURIComponent(analysisId)}/findings/${encodeURIComponent(findingId)}/lifecycle?${query}`;
+}
+
+export function findingLifecycleUrl(analysisId, findingId, filePath, download) {
+  return `${API_BASE_URL}${findingLifecyclePath(analysisId, findingId, filePath, download)}`;
+}
+
+export function getFindingLifecycle(analysisId, findingId, filePath) {
+  return apiRequest(findingLifecyclePath(analysisId, findingId, filePath));
 }
 
 export function getFindingAdvice({ analysisId, findingId, filePath }) {

@@ -16,7 +16,6 @@ from datetime import datetime, timezone
 from app.analysis_service import analyze_source_file
 from app.closure_evaluator import evaluate_closure
 from app.intake import inspect_source_file
-from app.trusted_sql_functional import test_trusted_sql_normal_input
 
 
 class RepairNotAvailable(ValueError):
@@ -99,15 +98,11 @@ def propose_repair(filename: str, content: bytes, finding_id: str) -> dict:
         },
         "static_retrace": static_retrace,
         "root_cause": root_cause,
-        "functional_test": "NOT_RUN",
-        "functional_evidence": {"status": "NOT_AVAILABLE", "reason": "NO_TRUSTED_FUNCTIONAL_SCENARIO"},
-        "runtime_replay": "NOT_RUN",
+        "functional_test": "NOT_AVAILABLE",
+        "functional_evidence": {"status": "NOT_AVAILABLE", "reason": "ISOLATED_EXECUTOR_UNAVAILABLE"},
+        "runtime_replay": "NOT_AVAILABLE",
         "verified_closed": False,
     }
-    if category == "sql_execution_candidate":
-        functional = test_trusted_sql_normal_input(intake["sha256"], proposal)
-        proposal["functional_evidence"] = functional
-        proposal["functional_test"] = functional["status"] if functional["status"] != "NOT_AVAILABLE" else "NOT_RUN"
     proposal["closure_evaluation"] = evaluate_closure(
         finding=finding, proposal=proposal, functional=proposal["functional_evidence"],
     )

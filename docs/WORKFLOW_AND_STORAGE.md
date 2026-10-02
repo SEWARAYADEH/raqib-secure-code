@@ -32,7 +32,9 @@ Persisted:
 - owner subject,
 - artifact hash,
 - structured analysis result,
-- record integrity MAC.
+- record integrity MAC,
+- repair evidence and closure gates,
+- an AES-GCM encrypted patched artifact for supported proposals, bound to owner, finding, and SHA-256.
 
 Not intentionally persisted as part of the analysis record:
 - plaintext service secrets,
@@ -50,6 +52,7 @@ Required production secrets belong in the host secret store or local `backend/.e
 - `SECRET_KEY`
 - `ANALYSIS_API_TOKEN`
 - `RECORD_INTEGRITY_KEY`
+- `PATCH_ARTIFACT_ENCRYPTION_KEY`
 - `EMAIL_VERIFICATION_HMAC_KEY`
 - `SMTP_PASSWORD`
 - optional `OPENAI_API_KEY`

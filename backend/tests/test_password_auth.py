@@ -14,6 +14,7 @@ def test_published_demo_accounts_are_rejected_in_production(tmp_path):
             "SECRET_KEY": "s" * 40,
             "ANALYSIS_API_TOKEN": "a" * 40,
             "RECORD_INTEGRITY_KEY": "r" * 40,
+            "PATCH_ARTIFACT_ENCRYPTION_KEY": "p" * 40,
             "EMAIL_VERIFICATION_HMAC_KEY": "h" * 40,
             "ANALYSIS_STORE_ENABLED": True,
             "ANALYSIS_LOCAL_ONLY": False,

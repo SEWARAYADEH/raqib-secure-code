@@ -32,7 +32,7 @@ def test_candidate_requires_exploitability_proof_to_be_verified():
     assert verified["state"] == "VERIFIED"
 
 
-def test_closure_requires_all_five_successful_evidence_types():
+def test_closure_requires_runtime_before_and_all_closure_evidence_types():
     finding = _finding("FIX_APPLIED_UNVERIFIED")
     incomplete = [
         Evidence("FUNCTIONAL_TEST", "PASSED", "test:1"),
@@ -43,6 +43,7 @@ def test_closure_requires_all_five_successful_evidence_types():
 
     evidence = [
         Evidence("FUNCTIONAL_TEST", "PASSED", "test:1"),
+        Evidence("RUNTIME_VERIFICATION_BEFORE", "PASSED", "isolated:before:1"),
         Evidence("REPLAY", "PASSED", "replay:2"),
         Evidence("RE_SCAN", "PASSED", "scan:2"),
         Evidence("RE_TRACE", "PASSED", "trace:2"),
@@ -52,7 +53,7 @@ def test_closure_requires_all_five_successful_evidence_types():
 
     assert closed["state"] == "CLOSED"
     assert closed["closure"]["status"] == "CLOSED"
-    assert len(closed["closure"]["evidence"]) == 5
+    assert len(closed["closure"]["evidence"]) == 6
 
 
 def test_failed_or_reference_free_evidence_does_not_count():

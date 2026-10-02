@@ -6,8 +6,8 @@ Decision captured 2026-09-28 from the final five messages of the user-selected "
 
 Implementation order is technical progression, not severity ranking:
 
-1. **SQL injection:** HTTP input → variables/functions → query construction → SQL sink → parameter binding. Current status: bounded static candidate assessment for input influencing first query argument; bound-parameter and unresolved counterexamples are retained but not promoted. No runtime exploit verification or patching.
-2. **Command injection:** input → command construction → shell/process sink → allowlist and shell-mode context. Current status: source/sink and bounded static trace; verification and repair unavailable.
+1. **SQL injection:** HTTP input → variables/functions → query construction → SQL sink → parameter binding. Current status: bounded static candidates, a reviewed narrow Python SQLite patch, encrypted patched-artifact persistence, static re-scan/re-trace, and owner-scoped downloads. Runtime verification, functional execution, and replay are unavailable without isolation.
+2. **Command injection:** input → command construction → shell/process sink → allowlist and shell-mode context. Current status: bounded static candidates and a reviewed narrow Python subprocess argument-list patch with static re-scan/re-trace. Runtime verification, functional execution, and replay are unavailable without isolation.
 3. **Path traversal:** input path → normalization/join → filesystem operation → allowed root. Current status: planned; no pack implementation or claim.
 4. **XSS:** input → transformations → HTML/JavaScript sink → context-appropriate encoding. Current status: planned; no pack implementation or claim.
 5. **IDOR/broken authorization:** route → actor → resource ID → ownership/role guard → resource access. Current status: planned; no pack implementation or claim.
@@ -18,7 +18,7 @@ Packs are added only when their rules, counterexamples, and tests exist. Empty m
 
 Upload → intake → understand → trace → classify observations/candidates → verify → fix → functional tests → replay → re-scan → re-trace → closure evidence → report/download. Each stage must show its actual status; unavailable stages remain blocked. A candidate is not a verified vulnerability. Green "VERIFIED CLOSED" is reserved for completed evidence gates.
 
-The saved analysis screen shows metrics, trace, non-candidate reasons, and stage statuses. Its report link opens an integrity-checked record with executive, technical, and closure-evidence layers. The current closure layer explicitly says `NOT_AVAILABLE`; updated artifacts are not offered because no verified patch exists. Original uploads are never overwritten.
+The saved analysis screen shows metrics, trace, non-candidate reasons, and backend-owned lifecycle states. Supported single-file findings can produce an encrypted patched copy and downloadable security report without overwriting the original. A proposed patch is not a verified fix; closure remains `CLOSURE_INCOMPLETE` while runtime, functional, or replay gates are unavailable.
 
 ## Evaluation rule
 

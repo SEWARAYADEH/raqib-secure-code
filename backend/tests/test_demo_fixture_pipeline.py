@@ -77,25 +77,27 @@ def test_large_fixture_uses_real_upload_and_keeps_static_limits(tmp_path):
     assert repair["status"] == "PROPOSED_UNVERIFIED"
     assert repair["static_reanalysis"]["status"] == "NO_MATCH_OBSERVED"
     assert repair["static_retrace"]["status"] == "OBSERVED_NON_CANDIDATE"
-    assert repair["functional_test"] == "PASS"
-    assert repair["functional_evidence"]["scope"] == "TRUSTED_SYNTHETIC_FIXTURE"
-    assert repair["functional_evidence"]["before_observed"] == repair["functional_evidence"]["after_observed"]
+    assert repair["functional_test"] == "NOT_AVAILABLE"
+    assert repair["functional_evidence"] == {
+        "status": "NOT_AVAILABLE", "reason": "ISOLATED_EXECUTOR_UNAVAILABLE",
+    }
     assert repair["root_cause"]["finding_id"] == by_function["vuln_sql_injection"]["id"]
     assert repair["root_cause"]["category"] == "SQL_TEXT_CONCATENATION"
     assert repair["root_cause"]["status"] == "STATICALLY_SUPPORTED"
     assert repair["analyzer_version"]
-    assert repair["runtime_replay"] == "NOT_RUN"
+    assert repair["runtime_replay"] == "NOT_AVAILABLE"
     assert repair["verified_closed"] is False
     assert repair["closure_evaluation"]["status"] == "CLOSURE_INCOMPLETE"
+    assert repair["updated_source"].encode("utf-8") not in (tmp_path / "training.sqlite3").read_bytes()
     evidence = client.get(
         f"/api/v1/analyses/{analysis_id}/repair-evidence/{repair['finding_id']}"
     )
     assert evidence.status_code == 200
     saved_repair = evidence.get_json()["saved_evidence"]["evidence"]
-    assert saved_repair["functional_evidence"]["status"] == "PASS"
+    assert saved_repair["functional_evidence"]["status"] == "NOT_AVAILABLE"
     assert saved_repair["root_cause"]["evidence"] == repair["root_cause"]["evidence"]
     gates = {gate["name"]: gate["status"] for gate in saved_repair["closure_evaluation"]["gates"]}
-    assert gates["FUNCTIONAL_TEST"] == "PASS"
+    assert gates["FUNCTIONAL_TEST"] == "NOT_AVAILABLE"
     assert gates["RUNTIME_VERIFICATION_BEFORE"] == "NOT_AVAILABLE"
     assert gates["REPLAY_AFTER_PATCH"] == "NOT_AVAILABLE"
     assert "updated_source" not in saved_repair

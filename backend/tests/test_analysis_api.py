@@ -160,7 +160,7 @@ def test_production_configuration_fails_closed():
         RuntimeError,
         match=(
             "ANALYSIS_API_TOKEN, EMAIL_VERIFICATION_HMAC_KEY, "
-            "RECORD_INTEGRITY_KEY, SECRET_KEY"
+            "PATCH_ARTIFACT_ENCRYPTION_KEY, RECORD_INTEGRITY_KEY, SECRET_KEY"
         ),
     ):
         create_app(
@@ -170,6 +170,7 @@ def test_production_configuration_fails_closed():
                 "ANALYSIS_API_TOKEN": None,
                 "EMAIL_VERIFICATION_HMAC_KEY": None,
                 "RECORD_INTEGRITY_KEY": None,
+                "PATCH_ARTIFACT_ENCRYPTION_KEY": None,
             }
         )
 
@@ -182,6 +183,7 @@ def test_production_rejects_short_secrets():
                 "SECRET_KEY": "short",
                 "ANALYSIS_API_TOKEN": "also-short",
                 "RECORD_INTEGRITY_KEY": "short-too",
+                "PATCH_ARTIFACT_ENCRYPTION_KEY": "short-too",
             }
         )
 
@@ -197,8 +199,26 @@ def test_production_requires_immutable_storage():
                 "SECRET_KEY": "s" * 40,
                 "ANALYSIS_API_TOKEN": "t" * 40,
                 "RECORD_INTEGRITY_KEY": "i" * 40,
+                "PATCH_ARTIFACT_ENCRYPTION_KEY": "p" * 40,
                 "EMAIL_VERIFICATION_HMAC_KEY": "e" * 40,
                 "ANALYSIS_STORE_ENABLED": False,
+            }
+        )
+
+
+def test_production_requires_separate_artifact_encryption_key():
+    with pytest.raises(RuntimeError, match="must differ"):
+        create_app(
+            {
+                "APP_ENV": "production",
+                "SECRET_KEY": "s" * 40,
+                "ANALYSIS_API_TOKEN": "t" * 40,
+                "RECORD_INTEGRITY_KEY": "i" * 40,
+                "PATCH_ARTIFACT_ENCRYPTION_KEY": "i" * 40,
+                "EMAIL_VERIFICATION_HMAC_KEY": "e" * 40,
+                "ANALYSIS_STORE_ENABLED": True,
+                "ANALYSIS_LOCAL_ONLY": False,
+                "EMAIL_VERIFICATION_ENABLED": False,
             }
         )
 
@@ -211,6 +231,7 @@ def test_production_rejects_local_analysis_bypass():
                 "SECRET_KEY": "s" * 40,
                 "ANALYSIS_API_TOKEN": "t" * 40,
                 "RECORD_INTEGRITY_KEY": "i" * 40,
+                "PATCH_ARTIFACT_ENCRYPTION_KEY": "p" * 40,
                 "EMAIL_VERIFICATION_HMAC_KEY": "e" * 40,
                 "ANALYSIS_STORE_ENABLED": True,
                 "ANALYSIS_LOCAL_ONLY": True,

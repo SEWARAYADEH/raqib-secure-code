@@ -3,10 +3,14 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
 class AnalysisRecordNotFoundError(LookupError):
@@ -24,9 +28,11 @@ class AnalysisStore:
         self,
         database_path: str,
         integrity_key: str,
+        artifact_encryption_key: str,
     ) -> None:
         self.database_path = Path(database_path).resolve()
         self.integrity_key = integrity_key.encode("utf-8")
+        self.artifact_encryption_key = artifact_encryption_key.encode("utf-8")
         self.database_path.parent.mkdir(
             parents=True,
             exist_ok=True,
@@ -193,18 +199,37 @@ class AnalysisStore:
         created_at = datetime.now(timezone.utc).isoformat()
         evidence = {key: value for key, value in proposal.items()
                     if key != "updated_source"}
+        patched = proposal.get("updated_source")
+        if not isinstance(patched, str):
+            raise ValueError("A complete patched artifact is required.")
+        artifact_bytes = patched.encode("utf-8")
+        patched_sha = hashlib.sha256(artifact_bytes).hexdigest()
+        if patched_sha != proposal.get("updated_sha256"):
+            raise ValueError("The patched artifact digest does not match.")
         payload_json = _canonical_json(evidence)
         mac = self._repair_mac(evidence_id, analysis_id, owner_subject,
                                finding_id, created_at, payload_json)
+        nonce = os.urandom(12)
+        aad = _canonical_json({"evidence_id": evidence_id,
+                               "analysis_id": analysis_id,
+                               "owner_subject": owner_subject,
+                               "finding_id": finding_id,
+                               "sha256": patched_sha}).encode("utf-8")
+        ciphertext = AESGCM(self._artifact_key()).encrypt(nonce, artifact_bytes, aad)
         with self._connect() as connection:
             connection.execute(
                 "INSERT INTO repair_evidence VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (evidence_id, analysis_id, owner_subject, finding_id,
                  created_at, payload_json, mac),
             )
+            connection.execute(
+                "INSERT INTO patched_artifacts VALUES (?, ?, ?, ?)",
+                (evidence_id, patched_sha, nonce, ciphertext),
+            )
         return {"evidence_id": evidence_id, "analysis_id": analysis_id,
                 "finding_id": finding_id, "created_at": created_at,
-                "integrity": "HMAC-SHA256", "evidence": evidence}
+                "integrity": "HMAC-SHA256", "evidence": evidence,
+                "patched_artifact": {"available": True, "sha256": patched_sha}}
 
     def latest_repair_evidence(self, *, analysis_id: str, owner_subject: str,
                                finding_id: str) -> dict | None:
@@ -224,9 +249,44 @@ class AnalysisStore:
                                     row["created_at"], row["payload_json"])
         if not hmac.compare_digest(row["integrity_mac"], expected):
             raise AnalysisRecordIntegrityError(row["evidence_id"])
+        with self._connect() as connection:
+            artifact = connection.execute(
+                "SELECT sha256 FROM patched_artifacts WHERE evidence_id = ?",
+                (row["evidence_id"],),
+            ).fetchone()
         return {"evidence_id": row["evidence_id"], "analysis_id": analysis_id,
                 "finding_id": finding_id, "created_at": row["created_at"],
-                "integrity": "HMAC-SHA256", "evidence": json.loads(row["payload_json"])}
+                "integrity": "HMAC-SHA256", "evidence": json.loads(row["payload_json"]),
+                "patched_artifact": {"available": artifact is not None,
+                                     "sha256": artifact["sha256"] if artifact else None}}
+
+    def get_patched_artifact(self, *, analysis_id: str, owner_subject: str,
+                             finding_id: str) -> tuple[bytes, dict] | None:
+        saved = self.latest_repair_evidence(analysis_id=analysis_id,
+                                             owner_subject=owner_subject,
+                                             finding_id=finding_id)
+        if saved is None or not saved["patched_artifact"]["available"]:
+            return None
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM patched_artifacts WHERE evidence_id = ?",
+                (saved["evidence_id"],),
+            ).fetchone()
+        aad = _canonical_json({"evidence_id": saved["evidence_id"],
+                               "analysis_id": analysis_id,
+                               "owner_subject": owner_subject,
+                               "finding_id": finding_id,
+                               "sha256": row["sha256"]}).encode("utf-8")
+        try:
+            content = AESGCM(self._artifact_key()).decrypt(
+                row["nonce"], row["ciphertext"], aad,
+            )
+        except (InvalidTag, ValueError) as exc:
+            raise AnalysisRecordIntegrityError(saved["evidence_id"]) from exc
+        if (hashlib.sha256(content).hexdigest() != row["sha256"]
+                or row["sha256"] != saved["evidence"].get("updated_sha256")):
+            raise AnalysisRecordIntegrityError(saved["evidence_id"])
+        return content, saved
 
     def _initialize(self) -> None:
         with self._connect() as connection:
@@ -263,6 +323,19 @@ class AnalysisStore:
                 "CREATE INDEX IF NOT EXISTS repair_evidence_lookup ON repair_evidence "
                 "(analysis_id, owner_subject, finding_id, created_at DESC)"
             )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS patched_artifacts (
+                    evidence_id TEXT PRIMARY KEY REFERENCES repair_evidence(evidence_id),
+                    sha256 TEXT NOT NULL,
+                    nonce BLOB NOT NULL,
+                    ciphertext BLOB NOT NULL
+                )"""
+            )
+
+    def _artifact_key(self) -> bytes:
+        return hashlib.sha256(
+            b"raqib-patched-artifact-v1\0" + self.artifact_encryption_key
+        ).digest()
 
     def _repair_mac(self, evidence_id: str, analysis_id: str, owner_subject: str,
                     finding_id: str, created_at: str, payload_json: str) -> str:

@@ -11,6 +11,7 @@ def test_configuration_status_exposes_flags_without_secret_values():
         "OSV_ADVISORY_LOOKUP_ENABLED": True,
         "EMAIL_VERIFICATION_ENABLED": False,
         "ISOLATION_RUNTIME_AVAILABLE": True,
+        "ANALYSIS_STORE_ENABLED": False,
     })
     response = app.test_client().get("/api/v1/configuration/status")
     assert response.status_code == 200
@@ -21,6 +22,7 @@ def test_configuration_status_exposes_flags_without_secret_values():
     assert response.json["analysis"]["osv_advisory_lookup_enabled"] is True
     assert response.json["storage"]["analysis_records"] == "OWNER_SCOPED_APPEND_ONLY"
     assert response.json["storage"]["uploaded_source_retention"] == "TEMPORARY_WORKSPACE_ONLY"
+    assert response.json["storage"]["patched_artifact_retention"] == "NOT_ENABLED"
     assert response.json["storage"]["original_overwritten"] is False
     assert "unit-test-secret-do-not-return" not in response.get_data(as_text=True)
 
