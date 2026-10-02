@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getStoredAnalysis } from '../api/endpoints';
 import AppShell from '../components/AppShell';
+import AnimatedCount from '../components/AnimatedCount';
 import AsyncState from '../components/AsyncState';
 import Icon from '../components/Icon';
 import StatusBadge from '../components/StatusBadge';
@@ -70,7 +71,7 @@ export default function ReportPage() {
             </section>
 
             {section === 'executive' ? (
-              <article className="report-document">
+              <article className="report-document" key="executive">
                 <header className="report-cover">
                   <div><span className="eyebrow">PARTIAL STATIC EVIDENCE</span><h2><bdi dir="ltr">{report.executive.artifact_name}</bdi></h2>
                     <p className="technical-value">Analysis ID · {report.analysis_id}</p>
@@ -78,12 +79,12 @@ export default function ReportPage() {
                   <StatusBadge tone="warning">UNVERIFIED</StatusBadge>
                 </header>
                 <section className="report-metrics">
-                  <div><span>{ar ? 'ملفات محللة' : 'Analyzed files'}</span><strong>{report.executive.analyzed_files}</strong></div>
-                  <div><span>{ar ? 'مدخلات مرصودة' : 'Detected sources'}</span><strong>{report.executive.sources}</strong></div>
-                  <div><span>{ar ? 'عمليات حساسة' : 'Detected sinks'}</span><strong>{report.executive.sinks}</strong></div>
-                  <div><span>{ar ? 'مرشحات نتائج' : 'Finding candidates'}</span><strong>{report.executive.finding_candidates}</strong></div>
-                  <div><span>{ar ? 'مسارات دليل' : 'Evidence traces'}</span><strong>{report.executive.evidence_traces}</strong></div>
-                  <div><span>{ar ? 'مسارات غير محسومة' : 'Unresolved paths'}</span><strong>{report.executive.unresolved_paths}</strong></div>
+                  <div><span>{ar ? 'ملفات محللة' : 'Analyzed files'}</span><strong><AnimatedCount value={report.executive.analyzed_files} /></strong></div>
+                  <div><span>{ar ? 'مدخلات مرصودة' : 'Detected sources'}</span><strong><AnimatedCount value={report.executive.sources} /></strong></div>
+                  <div><span>{ar ? 'عمليات حساسة' : 'Detected sinks'}</span><strong><AnimatedCount value={report.executive.sinks} /></strong></div>
+                  <div><span>{ar ? 'مرشحات نتائج' : 'Finding candidates'}</span><strong><AnimatedCount value={report.executive.finding_candidates} /></strong></div>
+                  <div><span>{ar ? 'مسارات دليل' : 'Evidence traces'}</span><strong><AnimatedCount value={report.executive.evidence_traces} /></strong></div>
+                  <div><span>{ar ? 'مسارات غير محسومة' : 'Unresolved paths'}</span><strong><AnimatedCount value={report.executive.unresolved_paths} /></strong></div>
                 </section>
                 <p>{ar ? 'هذا التقرير يصف الأدلة الساكنة فقط. قابلية الاستغلال والإغلاق لم يُتحقق منهما.' : report.executive.conclusion}</p>
                 <p>{ar ? 'بصمة الأصل SHA-256: ' : 'Original SHA-256: '}<code dir="ltr">{report.executive.artifact_sha256}</code></p>

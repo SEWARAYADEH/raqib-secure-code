@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getStoredAnalysis } from '../api/endpoints';
 import AppShell from '../components/AppShell';
+import AnimatedCount from '../components/AnimatedCount';
 import AsyncState from '../components/AsyncState';
 import StatusBadge from '../components/StatusBadge';
 import useAsyncResource from '../hooks/useAsyncResource';
@@ -69,8 +70,8 @@ export default function WorkbenchPage() {
           <>
             <div className="workspace-summary" aria-label={ar ? 'ملخص المشروع' : 'Project summary'}>
               <div><span>{ar ? 'الأصل' : 'Artifact'}</span><strong dir="auto">{result.artifact?.filename ?? 'Unknown'}</strong></div>
-              <div><span>{ar ? 'الملفات' : 'Files'}</span><strong>{files.length}</strong></div>
-              <div><span>{ar ? 'مرشحات أمنية' : 'Candidates'}</span><strong>{files.reduce((sum, item) => sum + fileCandidates(item).length, 0)}</strong></div>
+              <div><span>{ar ? 'الملفات' : 'Files'}</span><strong><AnimatedCount value={files.length} /></strong></div>
+              <div><span>{ar ? 'مرشحات أمنية' : 'Candidates'}</span><strong><AnimatedCount value={files.reduce((sum, item) => sum + fileCandidates(item).length, 0)} /></strong></div>
               <div><span>{ar ? 'سلامة السجل' : 'Record integrity'}</span><strong>{data.record.integrity}</strong></div>
             </div>
             <div className="workspace-layout">
@@ -89,7 +90,7 @@ export default function WorkbenchPage() {
                   </button>
                 ))}
               </aside>
-              <div className="workspace-inspector">
+              <div className="workspace-inspector" key={filePath(file)}>
                 <div className="workspace-file-header">
                   <div><span className="eyebrow">{file.language?.candidate ?? 'Unknown language'}</span><h2 dir="auto">{filePath(file)}</h2></div>
                   <StatusBadge tone={candidates.length ? 'warning' : 'neutral'}>{candidates.length} CANDIDATE</StatusBadge>

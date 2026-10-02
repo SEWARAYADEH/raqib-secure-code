@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProjects } from '../api/endpoints';
 import AppShell from '../components/AppShell';
+import AnimatedCount from '../components/AnimatedCount';
 import AsyncState from '../components/AsyncState';
 import Icon from '../components/Icon';
 import StatusBadge from '../components/StatusBadge';
@@ -38,10 +39,10 @@ export default function ProjectsPage() {
 
         {!loading && !error && (
           <div className="dashboard-summary" aria-label={ar ? 'ملخص آخر التحليلات' : 'Recent analysis summary'}>
-            <div><span>{ar ? 'التحليلات' : 'Analyses'}</span><strong>{saved.length}</strong></div>
-            <div><span>{ar ? 'ملفات محللة' : 'Analyzed files'}</span><strong>{totals.files}</strong></div>
-            <div><span>{ar ? 'مسارات مرصودة' : 'Observed paths'}</span><strong>{totals.paths}</strong></div>
-            <div><span>{ar ? 'مرشحات أمنية' : 'Candidates'}</span><strong>{totals.candidates}</strong></div>
+            <div><span>{ar ? 'التحليلات' : 'Analyses'}</span><strong><AnimatedCount value={saved.length} /></strong></div>
+            <div><span>{ar ? 'ملفات محللة' : 'Analyzed files'}</span><strong><AnimatedCount value={totals.files} /></strong></div>
+            <div><span>{ar ? 'مسارات مرصودة' : 'Observed paths'}</span><strong><AnimatedCount value={totals.paths} /></strong></div>
+            <div><span>{ar ? 'مرشحات أمنية' : 'Candidates'}</span><strong><AnimatedCount value={totals.candidates} /></strong></div>
           </div>
         )}
 

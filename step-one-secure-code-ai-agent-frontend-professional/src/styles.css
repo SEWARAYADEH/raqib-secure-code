@@ -4706,3 +4706,60 @@ select {
   .recorded-scan-flow ol { grid-template-columns: 1fr; }
   .recorded-scan-flow li:not(:last-child)::after { content: '↓'; top: auto; bottom: -14px; inset-inline-end: 50%; }
 }
+
+/* Motion on saved records and selected evidence only. */
+.projects-dashboard,
+.workspace-page,
+.configuration-page { animation: evidence-enter 320ms ease-out both; }
+.dashboard-record,
+.workspace-summary > div,
+.report-metrics > div { animation: evidence-enter 330ms ease-out both; }
+.dashboard-record:nth-child(2n),
+.workspace-summary > div:nth-child(2n),
+.report-metrics > div:nth-child(2n) { animation-delay: 55ms; }
+.workspace-inspector,
+.report-document { animation: evidence-enter 280ms ease-out both; }
+.recorded-scan-flow li { animation: evidence-enter 260ms ease-out both; }
+.recorded-scan-flow li:nth-child(2) { animation-delay: 65ms; }
+.recorded-scan-flow li:nth-child(3) { animation-delay: 130ms; }
+.recorded-scan-flow li:nth-child(4) { animation-delay: 195ms; }
+.recorded-scan-flow li:nth-child(5) { animation-delay: 260ms; }
+.dashboard-record,
+.workspace-candidates button,
+.workspace-files button,
+.report-finding-row { transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease; }
+.dashboard-record:hover,
+.dashboard-record:focus-within,
+.workspace-candidates button:hover,
+.workspace-candidates button:focus-visible { border-color: #5186ad; box-shadow: 0 0 0 1px rgb(84 201 241 / 12%); }
+.workspace-files button:hover:not(.active),
+.workspace-files button:focus-visible { background: #102940; border-color: #31526c; }
+.report-finding-row:hover,
+.report-finding-row:focus-within { background: #eef5fa; }
+
+.rescan-state { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 7px; padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px; font-size: .78rem; }
+.rescan-state::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #7f96aa; }
+.rescan-state.rescan-clear { border-color: #488e85; background: rgb(42 129 118 / 13%); animation: rescan-arrive 700ms ease-out both; }
+.rescan-state.rescan-clear::before { background: #75d4ba; }
+.rescan-state.rescan-alert { border-color: #b08045; background: rgb(185 127 56 / 13%); animation: rescan-arrive 700ms ease-out both; }
+.rescan-state.rescan-alert::before { background: #f0b65f; }
+@keyframes rescan-arrive { from { box-shadow: 0 0 0 6px rgb(84 201 241 / 14%); } to { box-shadow: 0 0 0 0 transparent; } }
+
+/* Native modal supplies focus containment and Escape handling. */
+.advisor-drawer { position: fixed; inset-block: 0; inset-inline-start: auto; inset-inline-end: 0; width: min(420px, 100vw); max-width: none; max-height: none; height: 100dvh; margin: 0; padding: 0; border: 0; border-inline-start: 1px solid #31526c; background: #0c1e32; color: #edf6ff; box-shadow: -20px 0 55px rgb(0 0 0 / 30%); }
+.advisor-drawer[open] { display: grid; grid-template-rows: auto 1fr; animation: drawer-enter 260ms ease-out both; }
+.app-shell[dir="rtl"] .advisor-drawer[open] { animation-name: drawer-enter-rtl; }
+.advisor-drawer::backdrop { background: rgb(2 10 20 / 65%); }
+.advisor-drawer-head { display: flex; justify-content: space-between; align-items: start; gap: 16px; padding: 26px; border-bottom: 1px solid #31526c; }
+.advisor-drawer-head h2 { margin: 6px 0 0; }
+.advisor-drawer-body { display: grid; align-content: start; justify-items: start; gap: 16px; padding: 28px 26px; overflow-y: auto; }
+.advisor-drawer-body p { margin: 0; color: #b2c5d5; line-height: 1.65; }
+@keyframes drawer-enter { from { opacity: .65; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes drawer-enter-rtl { from { opacity: .65; transform: translateX(-24px); } to { opacity: 1; transform: translateX(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .projects-dashboard, .workspace-page, .configuration-page, .dashboard-record,
+  .workspace-summary > div, .report-metrics > div, .workspace-inspector,
+  .report-document, .recorded-scan-flow li, .rescan-state.rescan-clear,
+  .rescan-state.rescan-alert, .advisor-drawer[open] { animation: none; }
+}
