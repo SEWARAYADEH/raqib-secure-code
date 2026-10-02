@@ -25,6 +25,7 @@ MAX_TOTAL_EXPANDED_BYTES = 100 * 1024 * 1024
 MAX_TOTAL_SOURCE_BYTES = 20 * 1024 * 1024
 MAX_MANIFESTS = 20
 MAX_COMPRESSION_RATIO = 200
+MAX_REPORTED_SKIPPED_FILES = 100
 SOURCE_EXTENSIONS = {".py", ".js", ".jsx"}
 NESTED_ARCHIVE_EXTENSIONS = {
     ".zip",
@@ -70,7 +71,9 @@ def extract_source_archive(
     manifests = []
     canonical_paths = set()
     total_expanded = 0
+    total_compressed = 0
     total_source = 0
+    skipped_files = []
 
     try:
         with zipfile.ZipFile(buffer) as archive:
@@ -116,6 +119,7 @@ def extract_source_archive(
                     )
 
                 total_expanded += member.file_size
+                total_compressed += member.compress_size
 
                 if total_expanded > MAX_TOTAL_EXPANDED_BYTES:
                     raise SourceArchiveValidationError(
@@ -174,6 +178,14 @@ def extract_source_archive(
                     continue
 
                 if extension not in SOURCE_EXTENSIONS:
+                    if len(skipped_files) < MAX_REPORTED_SKIPPED_FILES:
+                        skipped_files.append(
+                            {
+                                "relative_path": relative_path,
+                                "size_bytes": member.file_size,
+                                "reason": "UNSUPPORTED_EXTENSION",
+                            }
+                        )
                     continue
 
                 if member.file_size > MAX_SOURCE_FILE_BYTES:
@@ -187,6 +199,10 @@ def extract_source_archive(
                     )
 
                 source = _read_bounded_member(archive, member)
+                if _is_binary_source(source):
+                    raise SourceArchiveValidationError(
+                        "Binary source members are not accepted."
+                    )
                 total_source += len(source)
 
                 if total_source > MAX_TOTAL_SOURCE_BYTES:
@@ -210,6 +226,12 @@ def extract_source_archive(
             "The ZIP archive could not be read safely."
         ) from exc
 
+    aggregate_ratio = total_expanded / max(total_compressed, 1)
+    if aggregate_ratio > MAX_COMPRESSION_RATIO:
+        raise SourceArchiveValidationError(
+            "Archive exceeds the aggregate compression-ratio limit."
+        )
+
     if not files:
         raise SourceArchiveValidationError(
             "Archive contains no supported source files."
@@ -220,7 +242,12 @@ def extract_source_archive(
         "sha256": hashlib.sha256(content).hexdigest(),
         "size_bytes": len(content),
         "source_file_count": len(files),
+        "member_count": len(canonical_paths),
+        "total_expanded_bytes": total_expanded,
+        "compression_ratio": round(aggregate_ratio, 3),
         "total_source_bytes": total_source,
+        "skipped_file_count": len(skipped_files),
+        "skipped_files": skipped_files,
         "manifests": manifests,
         "files": files,
     }
@@ -260,3 +287,13 @@ def _validate_archive_name(filename: str) -> None:
         raise SourceArchiveValidationError(
             "Archive filename must be a safe .zip basename."
         )
+
+
+def _is_binary_source(content: bytes) -> bool:
+    if b"\x00" in content:
+        return True
+    try:
+        content.decode("utf-8")
+    except UnicodeDecodeError:
+        return True
+    return False

@@ -20,7 +20,20 @@ export function buildReport(record) {
       controls: candidate.controls,
       code_evidence: candidate.code_evidence ?? null,
     }))
-  ));
+  )).concat((result.files ? result.security_analysis?.candidates ?? [] : []).map((candidate) => ({
+    id: candidate.id,
+    file: `${candidate.cross_file?.source_file ?? 'UNKNOWN'} → ${candidate.cross_file?.target_file ?? 'UNKNOWN'}`,
+    state: candidate.state,
+    title: candidate.title,
+    standards: candidate.standards,
+    source: candidate.source,
+    sink: candidate.sink,
+    trace: candidate.trace,
+    reachability: candidate.reachability,
+    exploitability: candidate.exploitability,
+    controls: candidate.controls,
+    code_evidence: candidate.code_evidence ?? null,
+  })));
   const nonCandidatePaths = files.flatMap((file) => (
     (file.security_analysis?.non_candidates ?? []).map((item) => ({
       file: file.artifact?.relative_path ?? file.artifact?.filename ?? 'UNKNOWN',
@@ -34,7 +47,8 @@ export function buildReport(record) {
   const sinks = files.reduce((sum, file) => sum + (file.security_semantics?.counts?.sinks ?? 0), 0);
   const observedPaths = files.reduce((sum, file) => sum
     + (file.data_flow?.counts?.observed_paths ?? 0)
-    + (file.inter_function_data_flow?.counts?.observed_paths ?? 0), 0);
+    + (file.inter_function_data_flow?.counts?.observed_paths ?? 0), 0)
+    + (result.project_understanding?.counts?.observed_cross_file_paths ?? 0);
   const unresolvedPaths = nonCandidatePaths.filter((item) =>
     item.assessment?.status?.includes('UNRESOLVED')).length;
 

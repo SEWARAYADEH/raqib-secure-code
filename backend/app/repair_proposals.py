@@ -115,6 +115,8 @@ def _sqlite_edits(source: str, function: ast.AST, finding: dict) -> dict[int, st
                for node in ast.walk(function)):
         raise RepairNotAvailable("SQLite connection evidence is missing.")
     sink = _sink_call(function, finding)
+    if not _call_name(sink).endswith(".execute"):
+        raise RepairNotAvailable("Only SQLite execute has a reviewed repair template.")
     if len(sink.args) != 1 or sink.keywords or not isinstance(sink.args[0], ast.Name):
         raise RepairNotAvailable("SQL execute shape is not supported.")
     query_name = sink.args[0].id
@@ -126,13 +128,10 @@ def _sqlite_edits(source: str, function: ast.AST, finding: dict) -> dict[int, st
         raise RepairNotAvailable("Query assignment is not unique.")
     assignment = assignments[0]
     value = assignment.value
-    if not (isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add)
-            and isinstance(value.left, ast.Constant) and isinstance(value.left.value, str)
-            and value.left.value.rstrip().upper().endswith(" ID =")
-            and isinstance(value.right, ast.Call) and _call_name(value.right) == "str"
-            and len(value.right.args) == 1 and isinstance(value.right.args[0], ast.Name)):
-        raise RepairNotAvailable("Only a literal SQLite ID query plus str(input) is supported.")
-    parameter = value.right.args[0].id
+    shape = _parameterized_query_shape(value)
+    if shape is None:
+        raise RepairNotAvailable("The SQL construction has no reviewed single-value template.")
+    query_template, parameter = shape
     if not any(step.get("kind") == "ASSIGNMENT" and step.get("target") == parameter
                for step in finding["trace"]):
         raise RepairNotAvailable("The query parameter is not on the observed trace.")
@@ -146,12 +145,56 @@ def _sqlite_edits(source: str, function: ast.AST, finding: dict) -> dict[int, st
         raise RepairNotAvailable("SQL sink text changed from the supported shape.")
     indentation = re.match(r"\s*", before_assignment).group()
     return {
-        assignment.lineno: f"{indentation}{query_name} = {value.left.value + '?'!r}",
+        assignment.lineno: f"{indentation}{query_name} = {query_template!r}",
         sink.lineno: before_sink.replace(
             expected_call,
             f"{finding['sink']['target']}({query_name}, ({parameter},))", 1,
         ),
     }
+
+
+def _parameterized_query_shape(value: ast.AST) -> tuple[str, str] | None:
+    template = None
+    parameter = None
+    if (
+        isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add)
+        and isinstance(value.left, ast.Constant) and isinstance(value.left.value, str)
+        and isinstance(value.right, ast.Call) and _call_name(value.right) == "str"
+        and len(value.right.args) == 1 and isinstance(value.right.args[0], ast.Name)
+    ):
+        template = value.left.value + "?"
+        parameter = value.right.args[0].id
+    elif isinstance(value, ast.JoinedStr):
+        formatted = [item for item in value.values if isinstance(item, ast.FormattedValue)]
+        if len(formatted) == 1 and isinstance(formatted[0].value, ast.Name):
+            parameter = formatted[0].value.id
+            parts = ["?" if item is formatted[0] else item.value
+                     for item in value.values if isinstance(item, (ast.Constant, ast.FormattedValue))]
+            if len(parts) == len(value.values) and all(isinstance(item, str) for item in parts):
+                template = "".join(parts)
+    elif (
+        isinstance(value, ast.BinOp) and isinstance(value.op, ast.Mod)
+        and isinstance(value.left, ast.Constant) and isinstance(value.left.value, str)
+        and value.left.value.count("%s") == 1 and isinstance(value.right, ast.Name)
+    ):
+        template = value.left.value.replace("%s", "?")
+        parameter = value.right.id
+    elif (
+        isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute)
+        and value.func.attr == "format"
+        and isinstance(value.func.value, ast.Constant)
+        and isinstance(value.func.value.value, str)
+        and value.func.value.value.count("{}") == 1
+        and len(value.args) == 1 and isinstance(value.args[0], ast.Name)
+        and not value.keywords
+    ):
+        template = value.func.value.value.replace("{}", "?")
+        parameter = value.args[0].id
+    if not template or not parameter:
+        return None
+    if not re.match(r"^\s*(?:SELECT|INSERT|UPDATE|DELETE|WITH)\b", template, re.I):
+        return None
+    return template, parameter
 
 
 def _subprocess_edits(source: str, function: ast.AST, finding: dict) -> dict[int, str]:

@@ -94,6 +94,39 @@ def test_project_resolves_unshadowed_imported_python_function_call():
     assert project["graph"]["counts"]["edges_by_type"]["CALLS"] == 1
 
 
+def test_project_resolves_unshadowed_python_module_alias_call():
+    source = analyze_source_file(
+        "app.py",
+        b"import services.user as users\ndef route():\n    return users.find_user()\n",
+    )
+    source["artifact"]["relative_path"] = "backend/app.py"
+    target = analyze_source_file("user.py", b"def find_user():\n    return 1\n")
+    target["artifact"]["relative_path"] = "backend/services/user.py"
+
+    project = build_project_understanding([source, target])
+
+    assert project["import_relationships"][0]["module"] == "services.user"
+    assert project["cross_file_calls"][0]["call_target"] == "users.find_user"
+    assert project["cross_file_calls"][0]["resolution"] == (
+        "STATIC_PYTHON_MODULE_IMPORT"
+    )
+
+
+def test_project_resolves_full_python_module_call():
+    source = analyze_source_file(
+        "app.py",
+        b"import services.user\ndef route():\n    return services.user.find_user()\n",
+    )
+    source["artifact"]["relative_path"] = "backend/app.py"
+    target = analyze_source_file("user.py", b"def find_user():\n    return 1\n")
+    target["artifact"]["relative_path"] = "backend/services/user.py"
+
+    project = build_project_understanding([source, target])
+    assert project["cross_file_calls"][0]["call_target"] == (
+        "services.user.find_user"
+    )
+
+
 def test_project_does_not_resolve_shadowed_or_ambiguous_imported_call():
     source = analyze_source_file(
         "app.py",
@@ -185,6 +218,28 @@ def test_project_requires_exported_javascript_target():
     assert project["cross_file_calls"] == []
 
 
+def test_project_resolves_commonjs_destructured_require_call():
+    source = analyze_source_file(
+        "main.js",
+        b'const { findUser: lookup } = require("./user.js");\n'
+        b'function main() { return lookup(); }\n',
+    )
+    source["artifact"]["relative_path"] = "src/main.js"
+    target = analyze_source_file(
+        "user.js",
+        b'function findUser() { return 1; }\nexports.findUser = findUser;\n',
+    )
+    target["artifact"]["relative_path"] = "src/user.js"
+
+    project = build_project_understanding([source, target])
+
+    assert project["import_relationships"][0]["status"] == "RESOLVED"
+    assert project["cross_file_calls"][0]["resolution"] == (
+        "STATIC_JAVASCRIPT_NAMED_IMPORT"
+    )
+    assert project["cross_file_calls"][0]["call_target"] == "lookup"
+
+
 def test_project_graph_merges_local_security_evidence_without_dangling_edges():
     source = analyze_source_file(
         "app.py",
@@ -208,3 +263,86 @@ def test_project_graph_merges_local_security_evidence_without_dangling_edges():
         edge["source"] in node_ids and edge["target"] in node_ids
         for edge in graph["edges"]
     )
+
+
+def test_project_observes_python_source_to_cross_file_database_sink():
+    route = analyze_source_file(
+        "routes.py",
+        b'''from flask import request
+from services.users import find_user
+
+def get_user():
+    user_id = request.args.get("id")
+    return find_user(user_id)
+''',
+    )
+    route["artifact"]["relative_path"] = "app/routes.py"
+    service = analyze_source_file(
+        "users.py",
+        b'''def find_user(user_id, cursor):
+    query = "SELECT * FROM users WHERE id = '" + user_id + "'"
+    return cursor.execute(query)
+''',
+    )
+    service["artifact"]["relative_path"] = "app/services/users.py"
+
+    project = build_project_understanding([route, service])
+
+    assert project["claims"]["cross_file_data_flow"] == "PARTIAL_STATIC"
+    path = project["cross_file_data_flow"][0]
+    assert path["source_file"] == "app/routes.py"
+    assert path["target_file"] == "app/services/users.py"
+    assert path["source"]["category"] == "http_query_input"
+    assert path["sink"]["category"] == "sql_execution_candidate"
+    assert [step["kind"] for step in path["trace"]] == [
+        "SOURCE", "ASSIGNMENT", "CALL_ARGUMENT", "CALL_BOUNDARY",
+        "PARAMETER", "ASSIGNMENT", "SINK",
+    ]
+    assert project["graph"]["counts"]["edges_by_type"][
+        "CROSSES_FILE_BOUNDARY"
+    ] == 1
+    assert project["graph"]["counts"]["edges_by_type"]["PATH_STARTS_AT"] >= 1
+    assert project["graph"]["counts"]["edges_by_type"]["PATH_ENDS_AT"] >= 1
+
+
+def test_project_does_not_invent_cross_file_flow_for_unrelated_argument():
+    route = analyze_source_file(
+        "routes.py",
+        b'''from flask import request
+from services.users import find_user
+
+def get_user():
+    ignored = request.args.get("id")
+    return find_user("fixed")
+''',
+    )
+    route["artifact"]["relative_path"] = "app/routes.py"
+    service = analyze_source_file(
+        "users.py", b"def find_user(user_id):\n    return open(user_id).read()\n"
+    )
+    service["artifact"]["relative_path"] = "app/services/users.py"
+
+    project = build_project_understanding([route, service])
+    assert project["cross_file_data_flow"] == []
+
+
+def test_project_observes_javascript_request_to_cross_file_filesystem_sink():
+    route = analyze_source_file(
+        "routes.js",
+        b'import { readDocument } from "./documents.js";\n'
+        b'export function download(req) { const name = req.params.name; return readDocument(name); }\n',
+    )
+    route["artifact"]["relative_path"] = "src/routes.js"
+    service = analyze_source_file(
+        "documents.js",
+        b'import fs from "fs";\n'
+        b'export function readDocument(name) { const path = "/srv/data/" + name; return fs.readFileSync(path); }\n',
+    )
+    service["artifact"]["relative_path"] = "src/documents.js"
+
+    project = build_project_understanding([route, service])
+
+    assert project["claims"]["cross_file_call_languages"] == ["JavaScript"]
+    path = project["cross_file_data_flow"][0]
+    assert path["source"]["category"] == "http_path_input"
+    assert path["sink"]["category"] == "filesystem_path_operation"

@@ -84,7 +84,7 @@
     "label": "STATIC_CANDIDATE",
     "pair_id": null,
     "role": "EVALUATION",
-    "expected_candidates": 2,
-    "expected_non_candidate_paths": 2
+    "expected_candidates": 3,
+    "expected_non_candidate_paths": 3
   }
 ]

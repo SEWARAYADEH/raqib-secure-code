@@ -364,6 +364,16 @@ def _inspect_javascript_node(
         value_node = node.child_by_field_name("value")
 
         if name_node is not None and value_node is not None:
+            require_module = _javascript_require_module(value_node, source_bytes)
+            if require_module is not None:
+                result["imports"].append(
+                    {
+                        "statement": _node_text(node, source_bytes),
+                        "module": require_module,
+                        "kind": "require_declaration",
+                        **_location(node),
+                    }
+                )
             if value_node.type in {
                 "arrow_function",
                 "function_expression",
@@ -781,3 +791,22 @@ def _append_return(
             **_location(node),
         }
     )
+
+
+def _javascript_require_module(node, source_bytes: bytes) -> str | None:
+    if node.type != "call_expression":
+        return None
+    function = node.child_by_field_name("function")
+    arguments = node.child_by_field_name("arguments")
+    if function is None or _node_text(function, source_bytes) != "require":
+        return None
+    values = _argument_values(arguments, source_bytes)
+    if len(values) != 1:
+        return None
+    return _literal_text(values[0]["text"])
+
+
+def _literal_text(value: str) -> str | None:
+    if len(value) < 2 or value[0] not in {"'", '"'} or value[-1] != value[0]:
+        return None
+    return value[1:-1]

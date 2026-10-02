@@ -13,12 +13,14 @@ def enrich_application_understanding(
     understanding = dict(base)
     dependencies = _dependencies(parsed)
     services = _services(parsed)
+    controllers = _controllers(parsed, base)
     database_operations = _database_operations(semantics)
     security_controls = _security_controls(base, semantics)
     understanding.update(
         {
             "dependencies": dependencies,
             "services": services,
+            "controllers": controllers,
             "database_operations": database_operations,
             "security_context": {
                 "controls": security_controls,
@@ -34,6 +36,7 @@ def enrich_application_understanding(
         **base["counts"],
         "dependencies": len(dependencies),
         "services": len(services),
+        "controllers": len(controllers),
         "database_operations": len(database_operations),
         "security_controls": len(security_controls),
     }
@@ -100,6 +103,33 @@ def _services(parsed: dict) -> list[dict]:
             }
         )
     return services
+
+
+def _controllers(parsed: dict, base: dict) -> list[dict]:
+    controllers = []
+    route_handlers = {
+        route.get("handler") for route in base.get("routes", [])
+        if route.get("handler")
+    }
+    for function in parsed.get("functions", []):
+        if function["name"] in route_handlers:
+            controllers.append({
+                "name": function["name"],
+                "kind": "ROUTE_HANDLER",
+                "status": "RESOLVED",
+                "start_line": function["start_line"],
+                "end_line": function["end_line"],
+            })
+    for item in parsed.get("classes", []):
+        if item["name"].endswith(("Controller", "View", "ViewSet")):
+            controllers.append({
+                "name": item["name"],
+                "kind": "CONTROLLER_CLASS",
+                "status": "CANDIDATE",
+                "start_line": item["start_line"],
+                "end_line": item["end_line"],
+            })
+    return controllers
 
 
 def _database_operations(semantics: dict) -> list[dict]:

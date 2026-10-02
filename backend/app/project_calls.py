@@ -50,21 +50,36 @@ def python_binding_evidence(source_text: str) -> dict:
 
     safe_imports = []
     for node in tree.body:
-        if not isinstance(node, ast.ImportFrom) or node.level:
-            continue
-        for alias in node.names:
-            binding = alias.asname or alias.name
+        if isinstance(node, ast.ImportFrom) and not node.level:
+            for alias in node.names:
+                binding = alias.asname or alias.name
+                if (
+                    alias.name != "*"
+                    and import_bindings.count(binding) == 1
+                    and binding not in writes
+                    and binding not in declarations
+                ):
+                    safe_imports.append(
+                        {
+                            "line": node.lineno,
+                            "module": node.module,
+                            "imported_name": alias.name,
+                            "binding": binding,
+                        }
+                    )
+        elif isinstance(node, ast.Import) and len(node.names) == 1:
+            alias = node.names[0]
+            binding = alias.asname or alias.name.split(".", 1)[0]
             if (
-                alias.name != "*"
-                and import_bindings.count(binding) == 1
+                import_bindings.count(binding) == 1
                 and binding not in writes
                 and binding not in declarations
             ):
                 safe_imports.append(
                     {
                         "line": node.lineno,
-                        "module": node.module,
-                        "imported_name": alias.name,
+                        "module": alias.name,
+                        "imported_name": None,
                         "binding": binding,
                     }
                 )
@@ -194,10 +209,15 @@ def resolve_project_calls(
                             "callee": targets[0]["qualified_name"],
                             "callee_id": targets[0]["id"],
                             "call_line": call["line"],
+                            "call_target": binding,
                             "import_line": relationship["line"],
                             "resolution": "STATIC_PYTHON_FROM_IMPORT",
                         }
                     )
+
+        resolved.extend(_resolve_python_module_calls(
+            relationship, source_file, target_file, source, target
+        ))
 
     return sorted(
         resolved,
@@ -207,6 +227,78 @@ def resolve_project_calls(
             item["target_file"],
         ),
     )
+
+
+def _resolve_python_module_calls(
+    relationship: dict, source_file: str, target_file: str,
+    source: dict, target: dict,
+) -> list[dict]:
+    imports = [
+        item for item in source["structure"]["imports"]
+        if item["start_line"] == relationship["line"]
+        and item["kind"] == "import_statement"
+    ]
+    resolved = []
+    for imported in imports:
+        try:
+            statement = ast.parse(imported["statement"]).body[0]
+        except SyntaxError:
+            continue
+        if not isinstance(statement, ast.Import) or len(statement.names) != 1:
+            continue
+        alias = statement.names[0]
+        if alias.name != relationship["module"]:
+            continue
+        binding = alias.asname or alias.name.split(".", 1)[0]
+        proof = source.get("python_binding_evidence", {})
+        if not any(
+            item == {
+                "line": relationship["line"], "module": alias.name,
+                "imported_name": None, "binding": binding,
+            }
+            for item in proof.get("safe_imports", [])
+        ):
+            continue
+        call_namespace = alias.asname or alias.name
+        for call in source["relationships"]["unresolved_calls"]:
+            prefix = f"{call_namespace}."
+            if not call["call_target"].startswith(prefix):
+                continue
+            member = call["call_target"][len(prefix):]
+            if "." in member:
+                continue
+            targets = [
+                symbol for symbol in target["relationships"]["symbols"]
+                if symbol["name"] == member
+                and symbol["parent_function_id"] is None
+                and symbol["class_id"] is None
+                and symbol["start_column"] == 0
+            ]
+            callers = [
+                symbol for symbol in source["relationships"]["symbols"]
+                if symbol["id"] == call["caller_id"]
+            ]
+            if len(targets) != 1 or len(callers) != 1 or not any(
+                item == {
+                    "name": callers[0]["name"],
+                    "line": callers[0]["start_line"], "binding": binding,
+                }
+                for item in proof.get("global_callers", [])
+            ):
+                continue
+            resolved.append({
+                "source_file": source_file,
+                "caller": call["caller"],
+                "caller_id": call["caller_id"],
+                "target_file": target_file,
+                "callee": targets[0]["qualified_name"],
+                "callee_id": targets[0]["id"],
+                "call_line": call["line"],
+                "call_target": call["call_target"],
+                "import_line": relationship["line"],
+                "resolution": "STATIC_PYTHON_MODULE_IMPORT",
+            })
+    return resolved
 
 
 def _resolve_javascript_calls(
@@ -261,6 +353,7 @@ def _resolve_javascript_calls(
                 "callee": targets[0]["qualified_name"],
                 "callee_id": targets[0]["id"],
                 "call_line": proof["call_line"],
+                "call_target": proof["binding"],
                 "import_line": relationship["line"],
                 "resolution": "STATIC_JAVASCRIPT_NAMED_IMPORT",
             }

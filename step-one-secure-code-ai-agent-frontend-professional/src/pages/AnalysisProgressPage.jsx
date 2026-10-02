@@ -49,7 +49,11 @@ function resultCandidates(result) {
       finding,
       path: file.artifact?.relative_path ?? file.artifact?.filename ?? 'Unknown',
     }))
-  );
+  ).concat((result.files ? result.security_analysis?.candidates ?? [] : []).map((finding) => ({
+    finding,
+    path: `${finding.cross_file?.source_file ?? 'Unknown'} → ${finding.cross_file?.target_file ?? 'Unknown'}`,
+    selector: '@project',
+  })));
 }
 
 function AnalysisStageRail({ result, ar }) {
@@ -89,7 +93,7 @@ function ResultOverview({ payload, ar, navigate }) {
   return <>
     <section className="result-overview" aria-label={ar ? 'ملخص التحليل' : 'Analysis summary'}>{values.map(([label, value]) => <div key={label}><span>{label}</span><strong dir="auto">{typeof value === 'number' ? <AnimatedCount value={value} /> : value}</strong></div>)}</section>
     <section className="result-findings"><h2>{ar ? 'المشاكل المكتشفة' : 'Detected problems'}</h2><p>{ar ? 'هذه مرشحات ساكنة، وليست ثغرات مثبتة أو إصلاحات مغلقة.' : 'These are static candidates, not verified vulnerabilities or closed repairs.'}</p>
-      {candidates.length ? <div className="result-finding-list">{candidates.map(({ finding, path }) => <article key={`${path}:${finding.id}`}><div><strong>{finding.pack_assessment?.pack?.replaceAll('_', ' ') ?? finding.sink?.category ?? 'Security candidate'}</strong><small dir="ltr">{path} · {finding.scope?.function ?? 'Unresolved'}() · Line {finding.sink?.start_line ?? 'Unknown'}</small></div><span className="candidate-state">CANDIDATE</span>{analysisId && <button className="button button-ghost compact-button" onClick={() => navigate(`/projects/${encodeURIComponent(analysisId)}/findings/${encodeURIComponent(finding.id)}?${new URLSearchParams({ file: path })}`)} type="button">{ar ? 'افتح الدليل' : 'Inspect evidence'}</button>}</article>)}</div> : <div className="analysis-empty">{ar ? 'لا توجد مرشحات ضمن النطاق المدعوم. هذا لا يثبت خلو المشروع من الثغرات.' : 'No candidates in supported coverage. This does not prove the project is safe.'}</div>}
+      {candidates.length ? <div className="result-finding-list">{candidates.map(({ finding, path, selector }) => <article key={`${path}:${finding.id}`}><div><strong>{finding.pack_assessment?.pack?.replaceAll('_', ' ') ?? finding.sink?.category ?? 'Security candidate'}</strong><small dir="ltr">{path} · {finding.scope?.function ?? 'Unresolved'}() · Line {finding.sink?.start_line ?? 'Unknown'}</small></div><span className="candidate-state">CANDIDATE</span>{analysisId && <button className="button button-ghost compact-button" onClick={() => navigate(`/projects/${encodeURIComponent(analysisId)}/findings/${encodeURIComponent(finding.id)}?${new URLSearchParams({ file: selector ?? path })}`)} type="button">{ar ? 'افتح الدليل' : 'Inspect evidence'}</button>}</article>)}</div> : <div className="analysis-empty">{ar ? 'لا توجد مرشحات ضمن النطاق المدعوم. هذا لا يثبت خلو المشروع من الثغرات.' : 'No candidates in supported coverage. This does not prove the project is safe.'}</div>}
       {analysisId && candidates.length > 1 && <button className="button button-ghost" onClick={() => navigate(`/projects/${encodeURIComponent(analysisId)}/findings`)} type="button">{ar ? 'عرض كل المشاكل المكتشفة' : 'View all detected problems'}</button>}
     </section>
   </>;

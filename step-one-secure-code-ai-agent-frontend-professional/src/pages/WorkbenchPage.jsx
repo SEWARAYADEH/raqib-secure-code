@@ -40,6 +40,7 @@ export default function WorkbenchPage() {
   const files = result?.files ?? (result ? [result] : []);
   const file = files.find((item) => filePath(item) === selectedPath) ?? files[0];
   const candidates = file ? fileCandidates(file) : [];
+  const projectCandidates = result?.files ? result.security_analysis?.candidates ?? [] : [];
   const structure = file?.structure ?? {};
   const understanding = file?.application_understanding ?? {};
   const paths = [
@@ -71,7 +72,7 @@ export default function WorkbenchPage() {
             <div className="workspace-summary" aria-label={ar ? 'ملخص المشروع' : 'Project summary'}>
               <div><span>{ar ? 'الأصل' : 'Artifact'}</span><strong dir="auto">{result.artifact?.filename ?? 'Unknown'}</strong></div>
               <div><span>{ar ? 'الملفات' : 'Files'}</span><strong><AnimatedCount value={files.length} /></strong></div>
-              <div><span>{ar ? 'مرشحات أمنية' : 'Candidates'}</span><strong><AnimatedCount value={files.reduce((sum, item) => sum + fileCandidates(item).length, 0)} /></strong></div>
+              <div><span>{ar ? 'مرشحات أمنية' : 'Candidates'}</span><strong><AnimatedCount value={files.reduce((sum, item) => sum + fileCandidates(item).length, 0) + projectCandidates.length} /></strong></div>
               <div><span>{ar ? 'سلامة السجل' : 'Record integrity'}</span><strong>{data.record.integrity}</strong></div>
             </div>
             <div className="workspace-layout">

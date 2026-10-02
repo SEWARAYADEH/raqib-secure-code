@@ -67,6 +67,19 @@ app.post("/login", loginHandler);
     assert understanding["routes"][0]["handler"] == "loginHandler"
 
 
+def test_commonjs_express_require_is_code_evidence():
+    parsed = parse_source(
+        '''const express = require("express");
+const app = express();
+app.get("/status", statusHandler);''',
+        "JavaScript",
+    )
+    understanding = understand_frameworks(parsed)
+    assert understanding["frameworks"][0]["name"] == "Express"
+    assert understanding["frameworks"][0]["status"] == "CORROBORATED"
+    assert understanding["frameworks"][0]["evidence"] == ["REQUIRE", "CALL"]
+
+
 def test_react_is_detected_from_import_evidence():
     parsed = parse_source(
         'import React from "react";\nconst value = 1;\n',
@@ -88,3 +101,64 @@ def test_unknown_code_remains_unknown():
     assert understanding["project_role"] == "UNKNOWN_COMPONENT"
     assert understanding["frameworks"] == []
     assert understanding["routes"] == []
+
+
+def test_fastapi_route_requires_fastapi_code_evidence():
+    parsed = parse_source(
+        '''
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.post("/users")
+def create_user():
+    return {}
+'''.strip(),
+        "Python",
+    )
+    understanding = understand_frameworks(parsed)
+
+    assert understanding["frameworks"][0] == {
+        "name": "FastAPI",
+        "category": "WEB_API",
+        "status": "CORROBORATED",
+        "evidence": ["IMPORT", "CALL", "DECORATOR"],
+    }
+    assert understanding["routes"][0]["framework"] == "FastAPI"
+    assert understanding["routes"][0]["methods"] == ["POST"]
+
+
+def test_django_url_path_is_extracted_with_unresolved_http_method():
+    parsed = parse_source(
+        '''
+from django.urls import path
+from views import detail
+urlpatterns = [path("users/<int:user_id>/", detail)]
+'''.strip(),
+        "Python",
+    )
+    understanding = understand_frameworks(parsed)
+
+    assert understanding["frameworks"][0]["name"] == "Django"
+    assert understanding["frameworks"][0]["status"] == "CORROBORATED"
+    assert understanding["routes"][0]["framework"] == "Django"
+    assert understanding["routes"][0]["path"] == "users/<int:user_id>/"
+    assert understanding["routes"][0]["handler"] == "detail"
+    assert understanding["routes"][0]["methods"] == ["UNRESOLVED"]
+
+
+def test_ambiguous_python_route_framework_stays_unresolved():
+    parsed = parse_source(
+        '''
+from flask import Flask
+from fastapi import FastAPI
+flask_app = Flask(__name__)
+api = FastAPI()
+
+@api.get("/status")
+def status():
+    return {}
+'''.strip(),
+        "Python",
+    )
+    route = understand_frameworks(parsed)["routes"][0]
+    assert route["framework"] == "UNRESOLVED"

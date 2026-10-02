@@ -56,6 +56,24 @@ def test_sql_proposal_changes_two_lines_and_remains_unverified():
     assert b"cursor.execute(query)" in SQL_SOURCE
 
 
+@pytest.mark.parametrize(
+    "expression",
+    [
+        'f"SELECT id FROM users WHERE id = {user_id}"',
+        '"SELECT id FROM users WHERE id = %s" % user_id',
+        '"SELECT id FROM users WHERE id = {}".format(user_id)',
+    ],
+)
+def test_sql_proposal_supports_reviewed_single_value_constructions(expression):
+    source = SQL_SOURCE.replace(
+        b'"SELECT id FROM users WHERE id = " + str(user_id)', expression.encode()
+    )
+    proposal = propose_repair("case.py", source, _finding(source)["id"])
+    assert "query = 'SELECT id FROM users WHERE id = ?'" in proposal["updated_source"]
+    assert "cursor.execute(query, (user_id,))" in proposal["updated_source"]
+    assert proposal["static_reanalysis"]["status"] == "NO_MATCH_OBSERVED"
+
+
 def test_command_proposal_uses_argument_list_and_disables_shell():
     proposal = propose_repair("case.py", COMMAND_SOURCE, _finding(COMMAND_SOURCE)["id"])
     assert "['echo', 'Checking', 'host:', str(host)]" in proposal["updated_source"]

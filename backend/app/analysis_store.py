@@ -169,6 +169,9 @@ class AnalysisStore:
                     "candidate_count": sum(
                         len(file.get("security_analysis", {}).get("candidates", []))
                         for file in files
+                    ) + (
+                        len(result.get("security_analysis", {}).get("candidates", []))
+                        if result.get("files") else 0
                     ),
                     "observed_paths": sum(
                         file.get("data_flow", {}).get("counts", {}).get(
@@ -178,7 +181,9 @@ class AnalysisStore:
                             "counts", {}
                         ).get("observed_paths", 0)
                         for file in files
-                    ),
+                    ) + result.get("project_understanding", {}).get(
+                        "counts", {}
+                    ).get("observed_cross_file_paths", 0),
                     "integrity": record["integrity"],
                 }
             )

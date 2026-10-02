@@ -90,6 +90,7 @@ def build_intra_function_data_flow(
                 scope=scope,
                 tainted=tainted,
                 control_flow=control_flow,
+                controls=controls,
             )
 
             if path is not None:
@@ -121,6 +122,12 @@ def _seed_tainted_variables(
         source,
         control_flow,
     )
+    binding = source.get("binding")
+    if isinstance(binding, str) and _is_identifier(binding):
+        tainted[binding] = [{
+            "trace": [_source_step(source)],
+            "constraints": source_constraints,
+        }]
 
     for assignment in assignments:
         value_location = assignment.get(
@@ -233,6 +240,7 @@ def _build_path(
     scope: dict,
     tainted: dict[str, list[dict]],
     control_flow: dict,
+    controls: list,
 ) -> dict | None:
     direct_source = _contains(sink_call, source)
     matched_variable = None
@@ -250,6 +258,9 @@ def _build_path(
                 [],
             )
         ]
+        call_target = sink_call.get("target", "")
+        if "." in call_target:
+            argument_texts.append(call_target.rsplit(".", 1)[0])
         for name, states in tainted.items():
             if not any(
                 _mentions_identifier(text, name)
@@ -287,6 +298,7 @@ def _build_path(
         if direct_source
         else list(matched_state["trace"])
     )
+    trace.extend(_control_steps_for_location(controls, sink_call))
     trace.append(_sink_step(sink, matched_variable))
     path_constraints = (
         merge_constraints(
@@ -455,7 +467,7 @@ def _control_steps_for_location(
             "assessment": "UNVERIFIED_APPLICABILITY",
         }
         for control in controls
-        if _contains(location, control)
+        if _contains(location, control) or _contains(control, location)
     ]
 
 

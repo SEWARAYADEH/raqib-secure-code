@@ -53,3 +53,22 @@ def test_dependencies_are_observed_without_origin_claim():
     assert dependency["module"] == "os"
     assert dependency["status"] == "OBSERVED"
     assert dependency["origin"] == "UNRESOLVED"
+
+
+def test_route_handler_is_resolved_as_controller_indicator():
+    result = analyze_source_file(
+        "app.py",
+        b'''from flask import Flask
+app = Flask(__name__)
+@app.get("/status")
+def status():
+    return {}
+''',
+    )
+    assert result["application_understanding"]["controllers"] == [{
+        "name": "status",
+        "kind": "ROUTE_HANDLER",
+        "status": "RESOLVED",
+        "start_line": 4,
+        "end_line": 5,
+    }]

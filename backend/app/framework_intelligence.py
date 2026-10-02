@@ -25,7 +25,7 @@ AUTHORIZATION_DECORATORS = {
 
 def understand_frameworks(parsed: dict) -> dict:
     frameworks = _detect_frameworks(parsed)
-    routes = _extract_routes(parsed)
+    routes = _extract_routes(parsed, frameworks)
     auth_controls = _extract_auth_controls(parsed)
     categories = {item["category"] for item in frameworks}
 
@@ -60,7 +60,13 @@ def _detect_frameworks(parsed: dict) -> list[dict]:
     import_text = "\n".join(
         item.get("statement", "").lower()
         for item in parsed.get("imports", [])
+        if item.get("kind") != "require_declaration"
     )
+    require_modules = {
+        item.get("module", "").lower()
+        for item in parsed.get("imports", [])
+        if item.get("kind") == "require_declaration"
+    }
     call_targets = {
         item.get("target", "")
         for item in parsed.get("calls", [])
@@ -85,6 +91,20 @@ def _detect_frameworks(parsed: dict) -> list[dict]:
                 ".patch",
                 ".delete",
             ),
+        },
+        {
+            "name": "FastAPI",
+            "category": "WEB_API",
+            "import_tokens": ("import fastapi", "from fastapi"),
+            "call_targets": {"FastAPI", "APIRouter"},
+            "decorator_suffixes": tuple(f".{name}" for name in HTTP_METHODS),
+        },
+        {
+            "name": "Django",
+            "category": "WEB_API",
+            "import_tokens": ("import django", "from django"),
+            "call_targets": {"path", "re_path"},
+            "decorator_suffixes": (),
         },
         {
             "name": "React",
@@ -121,10 +141,13 @@ def _detect_frameworks(parsed: dict) -> list[dict]:
         ):
             evidence.append("IMPORT")
 
+        if rule["name"].lower() in require_modules:
+            evidence.append("REQUIRE")
+
         if call_targets & rule["call_targets"]:
             evidence.append("CALL")
 
-        if any(
+        if evidence and any(
             target.endswith(rule["decorator_suffixes"])
             for target in decorator_targets
         ):
@@ -147,9 +170,9 @@ def _detect_frameworks(parsed: dict) -> list[dict]:
     return matches
 
 
-def _extract_routes(parsed: dict) -> list[dict]:
+def _extract_routes(parsed: dict, frameworks: list[dict]) -> list[dict]:
     if parsed.get("language") == "Python":
-        return _extract_python_routes(parsed)
+        return _extract_python_routes(parsed, frameworks)
 
     if parsed.get("language") in {
         "JavaScript",
@@ -160,9 +183,10 @@ def _extract_routes(parsed: dict) -> list[dict]:
     return []
 
 
-def _extract_python_routes(parsed: dict) -> list[dict]:
+def _extract_python_routes(parsed: dict, frameworks: list[dict]) -> list[dict]:
     routes = []
     functions = parsed.get("functions", [])
+    detected = {item["name"] for item in frameworks}
 
     for decorator in parsed.get("decorators", []):
         method_name = decorator["target"].rsplit(".", 1)[-1]
@@ -177,9 +201,14 @@ def _extract_python_routes(parsed: dict) -> list[dict]:
             decorator["definition_location"],
         )
 
+        web_candidates = detected & {"Flask", "FastAPI"}
+        framework = (
+            next(iter(web_candidates)) if len(web_candidates) == 1
+            else "UNRESOLVED"
+        )
         routes.append(
             {
-                "framework": "Flask",
+                "framework": framework,
                 "path": path,
                 "methods": (
                     [HTTP_METHODS[method_name]]
@@ -200,6 +229,27 @@ def _extract_python_routes(parsed: dict) -> list[dict]:
                 "end_column": decorator["end_column"],
             }
         )
+
+    if "Django" in detected:
+        for call in parsed.get("calls", []):
+            if call.get("target") not in {"path", "re_path"}:
+                continue
+            arguments = call.get("argument_values", [])
+            path = _string_literal(arguments[0]["text"]) if arguments else None
+            handler = arguments[1]["text"] if len(arguments) > 1 else None
+            routes.append(
+                {
+                    "framework": "Django",
+                    "path": path,
+                    "methods": ["UNRESOLVED"],
+                    "handler": handler,
+                    "status": "RESOLVED" if path is not None and handler else "PARTIAL",
+                    "start_line": call["start_line"],
+                    "end_line": call["end_line"],
+                    "start_column": call["start_column"],
+                    "end_column": call["end_column"],
+                }
+            )
 
     return routes
 

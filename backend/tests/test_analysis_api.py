@@ -260,7 +260,7 @@ def test_analysis_options_are_real_and_safety_bounded(client):
         "BROKEN_AUTHORIZATION_IDOR",
     ]
     assert packs["SQL_INJECTION"]["status"] == "PARTIAL_STATIC_CANDIDATES"
-    assert packs["PATH_TRAVERSAL"]["status"] == "NOT_IMPLEMENTED"
+    assert packs["PATH_TRAVERSAL"]["status"] == "PARTIAL_STATIC_CANDIDATES"
     stages = {item["id"]: item["status"] for item in payload["workflow_stages"]}
     assert stages["UPLOAD"] == "AVAILABLE"
     assert stages["VERIFY"] == "NOT_AVAILABLE"

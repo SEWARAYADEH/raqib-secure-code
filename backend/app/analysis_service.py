@@ -31,7 +31,7 @@ from flask import current_app, has_app_context
 
 
 ANALYSIS_SCHEMA_VERSION = "1.0"
-ANALYZER_VERSION = "0.2.0"
+ANALYZER_VERSION = "0.3.0"
 
 
 class AnalysisValidationError(ValueError):

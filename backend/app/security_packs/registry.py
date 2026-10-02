@@ -33,7 +33,7 @@ PACKS = (
         "id": "PATH_TRAVERSAL",
         "display_name": "Path Traversal",
         "implementation_order": 3,
-        "status": "NOT_IMPLEMENTED",
+        "status": "PARTIAL_STATIC_CANDIDATES",
         "understanding_focus": "Input path -> normalization/join -> filesystem operation -> allowed root",
         "can_verify_exploitability": False,
         "can_generate_verified_patch": False,

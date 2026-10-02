@@ -78,6 +78,7 @@ export default function FindingDetailPage() {
   const storedProposal = savedRepair?.saved_evidence?.evidence;
   const activeProposal = proposal?.finding_id === finding?.id ? proposal : storedProposal?.finding_id === finding?.id ? storedProposal : null;
   const path = match?.file?.artifact?.relative_path ?? match?.file?.artifact?.filename ?? 'Unknown';
+  const canPropose = fileSelector !== '@project' && ['sql_execution_candidate', 'process_execution'].includes(finding?.sink?.category);
 
   async function requestProposal(event) {
     event.preventDefault();
@@ -106,7 +107,7 @@ export default function FindingDetailPage() {
       <div className="finding-evidence-layout">
       <FindingStageRail ar={ar} stages={lifecycle?.stages ?? []} />
       <div className="finding-evidence-main">
-      {['sql_execution_candidate', 'process_execution'].includes(finding.sink?.category) && <section className="repair-proposal-panel" id="repair-proposal" aria-label={ar ? 'توليد إصلاح مقترح' : 'Generate a repair proposal'}>
+      {canPropose && <section className="repair-proposal-panel" id="repair-proposal" aria-label={ar ? 'توليد إصلاح مقترح' : 'Generate a repair proposal'}>
         <div><span className="eyebrow">{lifecycle?.patch?.status ?? 'LOADING'}</span><h2>{ar ? 'ولّد إصلاحًا مقترحًا' : 'Generate a proposed repair'}</h2><p>{ar ? 'أعد اختيار الملف الأصلي نفسه. نتحقق من بصمته ونولّد تعديلًا محدودًا دون تشغيله أو تغيير الأصل.' : 'Select the exact original again. We verify its digest and generate a narrow patch without running or overwriting it.'}</p></div>
         <form onSubmit={requestProposal}><label htmlFor="repair-original-file">{ar ? 'الملف الأصلي' : 'Original file'}</label><input accept=".py" id="repair-original-file" onChange={(event) => { setOriginalFile(event.target.files?.[0] ?? null); setProposal(null); setRepairError(''); }} required type="file" /><button className="button button-primary" disabled={repairBusy || !originalFile} type="submit">{repairBusy ? (ar ? 'جارٍ توليد المقترح…' : 'Generating…') : (ar ? 'ولّد الإصلاح' : 'Generate proposal')}</button></form>
         {repairError && <p className="form-error" role="alert">{repairError}</p>}
@@ -115,7 +116,7 @@ export default function FindingDetailPage() {
       <div className="evidence-sequence">
         <EvidenceSection label="WHERE" title={ar ? 'وين المشكلة؟' : 'Where?'}><code dir="ltr">{finding.sink?.target ?? 'Unknown'} · {path}:{finding.sink?.start_line ?? '?'}</code></EvidenceSection>
         <EvidenceSection label="WHY" title={ar ? 'ليش اعتُبرت مرشحًا؟' : 'Why a candidate?'}><p>{finding.root_cause?.statement ?? 'Unresolved'}</p><small>{finding.pack_assessment?.basis ?? finding.evidence_strength}</small></EvidenceSection>
-        <EvidenceSection label="TRACE" title={ar ? 'مسار البيانات المرصود' : 'Observed data path'}><TraceFlow ar={ar} canPropose={['sql_execution_candidate', 'process_execution'].includes(finding.sink?.category)} key={finding.id} steps={finding.trace} /></EvidenceSection>
+        <EvidenceSection label="TRACE" title={ar ? 'مسار البيانات المرصود' : 'Observed data path'}><TraceFlow ar={ar} canPropose={canPropose} key={finding.id} steps={finding.trace} /></EvidenceSection>
         <EvidenceSection label="CODE" title={ar ? 'مقاطع الكود المحفوظة' : 'Saved code excerpts'}><div className="code-evidence-grid">{['source', 'sink'].map((kind) => <div key={kind}><strong>{kind.toUpperCase()} · {path}</strong><pre dir="ltr"><code>{finding.code_evidence?.[kind]?.length ? finding.code_evidence[kind].map((row) => `${row.line}  ${row.text}${row.truncated ? ' …' : ''}`).join('\n') : 'Excerpt unavailable for this saved record.'}</code></pre></div>)}</div></EvidenceSection>
         <EvidenceSection label="VERIFICATION" title={ar ? 'هل تم إثباتها؟' : 'Verified?'}><strong>{lifecycle?.runtime_before?.status ?? 'LOADING'}</strong><p>{ar ? 'المسار الساكن لا يثبت قابلية الاستغلال.' : 'A static path does not prove exploitability.'}</p></EvidenceSection>
         <EvidenceSection label="ROOT CAUSE" title={ar ? 'السبب الجذري' : 'Root cause'}><strong>{lifecycle?.stages?.find((stage) => stage.id === 'ROOT_CAUSE')?.status ?? 'LOADING'}</strong><p>{lifecycle?.root_cause?.explanation ?? lifecycle?.root_cause?.statement ?? 'Unresolved'}</p>{lifecycle?.root_cause?.category && <code dir="ltr">{lifecycle.root_cause.category} · {lifecycle.root_cause.source_location?.line ?? '?'} → {lifecycle.root_cause.sink_location?.line ?? '?'}</code>}</EvidenceSection>

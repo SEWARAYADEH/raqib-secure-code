@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import ast
 import json
 import posixpath
 from collections import Counter
 
 from app.project_calls import resolve_project_calls
+from app.project_data_flow import build_cross_file_data_flow
 
 
 def build_project_understanding(
@@ -15,9 +17,15 @@ def build_project_understanding(
     frameworks = _framework_inventory(file_results, manifests)
     routes = _route_inventory(file_results)
     authentication_controls = _auth_inventory(file_results)
+    controllers = _context_inventory(file_results, "controllers")
+    services = _context_inventory(file_results, "services")
+    database_operations = _context_inventory(file_results, "database_operations")
     import_relationships = _resolve_imports(file_results)
     cross_file_calls = resolve_project_calls(
         file_results, import_relationships
+    )
+    cross_file_data_flow = build_cross_file_data_flow(
+        file_results, cross_file_calls
     )
     categories = {item["category"] for item in frameworks}
 
@@ -36,6 +44,7 @@ def build_project_understanding(
         routes,
         import_relationships,
         cross_file_calls,
+        cross_file_data_flow,
         manifests,
     )
     return {
@@ -50,8 +59,12 @@ def build_project_understanding(
         "frameworks": frameworks,
         "routes": routes,
         "authentication_controls": authentication_controls,
+        "controllers": controllers,
+        "services": services,
+        "database_operations": database_operations,
         "import_relationships": import_relationships,
         "cross_file_calls": cross_file_calls,
+        "cross_file_data_flow": cross_file_data_flow,
         "manifests": manifests,
         "dependency_declarations": [
             {"manifest": manifest["relative_path"], **dependency}
@@ -64,6 +77,9 @@ def build_project_understanding(
             "frameworks": len(frameworks),
             "routes": len(routes),
             "authentication_controls": len(authentication_controls),
+            "controllers": len(controllers),
+            "services": len(services),
+            "database_operations": len(database_operations),
             "resolved_imports": sum(
                 item["status"] == "RESOLVED"
                 for item in import_relationships
@@ -73,6 +89,7 @@ def build_project_understanding(
                 for item in import_relationships
             ),
             "resolved_cross_file_calls": len(cross_file_calls),
+            "observed_cross_file_paths": len(cross_file_data_flow),
             "manifests": len(manifests),
             "dependency_declarations": sum(
                 len(item["dependencies"]) for item in manifests
@@ -85,12 +102,14 @@ def build_project_understanding(
             "cross_file_call_languages": sorted(
                 {
                     "Python"
-                    if call["resolution"] == "STATIC_PYTHON_FROM_IMPORT"
+                    if call["resolution"].startswith("STATIC_PYTHON_")
                     else "JavaScript"
                     for call in cross_file_calls
                 }
             ),
-            "cross_file_data_flow": "UNRESOLVED",
+            "cross_file_data_flow": (
+                "PARTIAL_STATIC" if cross_file_data_flow else "UNRESOLVED"
+            ),
             "sca_vulnerability_check": "NOT_RUN",
             "frameworks_require_file_evidence": True,
             "authentication_effectiveness_proven": False,
@@ -121,7 +140,13 @@ def _framework_inventory(
             if framework["status"] == "CORROBORATED":
                 item["status"] = "CORROBORATED"
 
-    known_names = {"react": "React", "flask": "Flask", "express": "Express"}
+    known_names = {
+        "react": "React",
+        "flask": "Flask",
+        "fastapi": "FastAPI",
+        "django": "Django",
+        "express": "Express",
+    }
     for manifest in manifests:
         for dependency in manifest["dependencies"]:
             framework_name = known_names.get(dependency["name"].casefold())
@@ -176,12 +201,24 @@ def _auth_inventory(file_results: list[dict]) -> list[dict]:
     )
 
 
+def _context_inventory(file_results: list[dict], key: str) -> list[dict]:
+    return sorted(
+        [
+            {"file": result["artifact"]["relative_path"], **item}
+            for result in file_results
+            for item in result["application_understanding"].get(key, [])
+        ],
+        key=lambda item: (item["file"], item.get("start_line", 0)),
+    )
+
+
 def _build_project_graph(
     file_results: list[dict],
     frameworks: list[dict],
     routes: list[dict],
     import_relationships: list[dict],
     cross_file_calls: list[dict],
+    cross_file_data_flow: list[dict],
     manifests: list[dict],
 ) -> dict:
     nodes = []
@@ -306,7 +343,7 @@ def _build_project_graph(
                 )
             )
 
-    function_ids = _merge_file_models(
+    function_ids, semantic_ids = _merge_file_models(
         file_results, nodes, edges, file_ids, framework_ids, route_ids
     )
 
@@ -330,6 +367,30 @@ def _build_project_graph(
                     },
                 )
             )
+
+    for index, path in enumerate(cross_file_data_flow):
+        path_id = _id("CROSS_FILE_EVIDENCE_PATH", index, path)
+        nodes.append({"id": path_id, "type": "EVIDENCE_PATH", "attributes": path})
+        edges.append(_edge(
+            "CONTAINS_EVIDENCE", file_ids[path["source_file"]], path_id,
+            {"resolution": path["resolution"]},
+        ))
+        edges.append(_edge(
+            "CROSSES_FILE_BOUNDARY", path_id, file_ids[path["target_file"]],
+            {"runtime_verified": False},
+        ))
+        source_id = semantic_ids.get((
+            path["source_file"], "SOURCE", path["source"]["target"],
+            path["source"]["start_line"],
+        ))
+        sink_id = semantic_ids.get((
+            path["target_file"], "SINK", path["sink"]["target"],
+            path["sink"]["start_line"],
+        ))
+        if source_id:
+            edges.append(_edge("PATH_STARTS_AT", path_id, source_id, {}))
+        if sink_id:
+            edges.append(_edge("PATH_ENDS_AT", path_id, sink_id, {}))
 
     nodes = list({node["id"]: node for node in nodes}.values())
     edges = list({edge["id"]: edge for edge in edges}.values())
@@ -355,8 +416,9 @@ def _merge_file_models(
     file_ids: dict[str, str],
     framework_ids: dict[str, str],
     route_ids: dict[tuple, str],
-) -> dict[tuple[str, str], str]:
+) -> tuple[dict[tuple[str, str], str], dict[tuple, str]]:
     function_ids = {}
+    semantic_ids = {}
     for result in file_results:
         path = result["artifact"]["relative_path"]
         model = result["application_model"]
@@ -391,6 +453,11 @@ def _merge_file_models(
                     }
                 )
             local_ids[node["id"]] = node_id
+            if kind in {"SOURCE", "SINK"}:
+                semantic_ids[(
+                    path, kind, attributes.get("target"),
+                    location.get("start_line"),
+                )] = node_id
 
         for edge in model["edges"]:
             if edge["type"] in {
@@ -421,7 +488,7 @@ def _merge_file_models(
                 function_ids[(path, symbol["id"])] = local_ids[
                     matches[0]["id"]
                 ]
-    return function_ids
+    return function_ids, semantic_ids
 
 
 def _resolve_imports(file_results: list[dict]) -> list[dict]:
@@ -449,6 +516,8 @@ def _resolve_imports(file_results: list[dict]) -> list[dict]:
             candidates: set[str] = set()
             resolution = "NO_LOCAL_MATCH"
 
+            if language == "Python":
+                module = _python_import_module(item)
             if module and language == "Python":
                 candidates = python_modules.get(module.lstrip("."), set())
                 resolution = "UNIQUE_PYTHON_MODULE_SUFFIX"
@@ -479,6 +548,18 @@ def _resolve_imports(file_results: list[dict]) -> list[dict]:
                 }
             )
     return relationships
+
+
+def _python_import_module(item: dict) -> str | None:
+    try:
+        statement = ast.parse(item.get("statement", "")).body[0]
+    except (SyntaxError, IndexError):
+        return item.get("module")
+    if isinstance(statement, ast.ImportFrom) and statement.level == 0:
+        return statement.module
+    if isinstance(statement, ast.Import) and len(statement.names) == 1:
+        return statement.names[0].name
+    return None
 
 
 def _javascript_candidates(

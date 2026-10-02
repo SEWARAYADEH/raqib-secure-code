@@ -8,7 +8,7 @@ Implementation order is technical progression, not severity ranking:
 
 1. **SQL injection:** HTTP input → variables/functions → query construction → SQL sink → parameter binding. Current status: bounded static candidates, a reviewed narrow Python SQLite patch, encrypted patched-artifact persistence, static re-scan/re-trace, and owner-scoped downloads. Runtime verification, functional execution, and replay are unavailable without isolation.
 2. **Command injection:** input → command construction → shell/process sink → allowlist and shell-mode context. Current status: bounded static candidates and a reviewed narrow Python subprocess argument-list patch with static re-scan/re-trace. Runtime verification, functional execution, and replay are unavailable without isolation.
-3. **Path traversal:** input path → normalization/join → filesystem operation → allowed root. Current status: planned; no pack implementation or claim.
+3. **Path traversal:** input path → normalization/join → filesystem operation → allowed root. Current status: partial static candidates for supported Python/JavaScript filesystem calls, with normalization and terminating containment guards retained as non-candidate observations. Runtime verification, automatic repair, replay, and closure are unavailable.
 4. **XSS:** input → transformations → HTML/JavaScript sink → context-appropriate encoding. Current status: planned; no pack implementation or claim.
 5. **IDOR/broken authorization:** route → actor → resource ID → ownership/role guard → resource access. Current status: planned; no pack implementation or claim.
 

@@ -42,8 +42,10 @@ def test_large_fixture_uses_real_upload_and_keeps_static_limits(tmp_path):
     by_function = {item["scope"]["function"]: item for item in candidates}
     assert "vuln_sql_injection" in by_function
     assert "vuln_command_injection" in by_function
+    assert "vuln_path_traversal" in by_function
     assert "safe_command_execution" not in by_function
     assert "safe_parameterized_sql" not in by_function
+    assert "safe_file_access" not in by_function
     assert all(item["state"] == "CANDIDATE" for item in candidates)
     assert result["security_analysis"]["counts"]["verified_vulnerabilities"] == 0
     assert all(not pack["can_close"] for pack in result["security_packs"])
@@ -52,7 +54,8 @@ def test_large_fixture_uses_real_upload_and_keeps_static_limits(tmp_path):
     assert by_function["vuln_sql_injection"]["code_evidence"]["source"]
     non_candidates = result["security_analysis"]["non_candidates"]
     assert {item["assessment"]["status"] for item in non_candidates} == {
-        "NON_QUERY_ARGUMENT_ONLY", "NON_SHELL_ARGUMENT_FLOW"
+        "NON_QUERY_ARGUMENT_ONLY", "NON_SHELL_ARGUMENT_FLOW",
+        "PATH_CONTROL_OBSERVED_UNVERIFIED",
     }
 
     analysis_id = created["record"]["analysis_id"]

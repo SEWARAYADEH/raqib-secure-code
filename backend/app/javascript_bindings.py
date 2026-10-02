@@ -22,6 +22,24 @@ def javascript_binding_evidence(source_text: str) -> dict:
                 name = child.child_by_field_name("name")
                 if name is not None:
                     exported_functions.append(_text(name, source))
+    function_names = {
+        _text(name, source)
+        for node in root.named_children
+        if node.type == "function_declaration"
+        for name in [node.child_by_field_name("name")]
+        if name is not None
+    }
+    for node in _walk(root):
+        if node.type != "assignment_expression":
+            continue
+        left = node.child_by_field_name("left")
+        right = node.child_by_field_name("right")
+        if left is None or right is None or right.type != "identifier":
+            continue
+        left_text = _text(left, source)
+        right_text = _text(right, source)
+        if left_text.startswith("exports.") and right_text in function_names:
+            exported_functions.append(left_text.split(".", 1)[1])
 
     leaves = [node for node in _walk(root) if not node.named_children]
     safe_calls = []
@@ -85,10 +103,73 @@ def javascript_binding_evidence(source_text: str) -> dict:
                         "binding": binding,
                         **call,
                     })
+    safe_calls.extend(_commonjs_safe_calls(root, source, leaves))
     return {
         "safe_calls": safe_calls,
         "exported_functions": sorted(set(exported_functions)),
     }
+
+
+def _commonjs_safe_calls(root, source: bytes, leaves: list) -> list[dict]:
+    output = []
+    for statement in root.named_children:
+        if statement.type not in {"lexical_declaration", "variable_declaration"}:
+            continue
+        for declarator in statement.named_children:
+            if declarator.type != "variable_declarator":
+                continue
+            pattern = declarator.child_by_field_name("name")
+            value = declarator.child_by_field_name("value")
+            module = _require_module(value, source)
+            if pattern is None or pattern.type != "object_pattern" or module is None:
+                continue
+            for pair in pattern.named_children:
+                if pair.type != "pair_pattern":
+                    continue
+                key = pair.child_by_field_name("key")
+                binding_node = pair.child_by_field_name("value")
+                if key is None or binding_node is None or binding_node.type != "identifier":
+                    continue
+                imported_name = _text(key, source)
+                binding = _text(binding_node, source)
+                calls = []
+                valid = True
+                for leaf in leaves:
+                    if leaf == binding_node or _text(leaf, source) != binding:
+                        continue
+                    if leaf.type != "identifier" or leaf.parent is None or leaf.parent.type != "call_expression" or leaf.parent.child_by_field_name("function") != leaf:
+                        valid = False
+                        break
+                    caller = _top_level_caller(leaf.parent, root)
+                    if caller is None:
+                        valid = False
+                        break
+                    calls.append((caller, leaf.parent.start_point.row + 1))
+                if valid:
+                    for caller, call_line in calls:
+                        output.append({
+                            "import_line": declarator.start_point.row + 1,
+                            "module": module,
+                            "imported_name": imported_name,
+                            "binding": binding,
+                            "caller": caller[0],
+                            "caller_line": caller[1],
+                            "call_line": call_line,
+                        })
+    return output
+
+
+def _require_module(node, source: bytes) -> str | None:
+    if node is None or node.type != "call_expression":
+        return None
+    function = node.child_by_field_name("function")
+    arguments = node.child_by_field_name("arguments")
+    if function is None or _text(function, source) != "require" or arguments is None:
+        return None
+    strings = [child for child in arguments.named_children if child.type == "string"]
+    if len(strings) != 1 or len(strings[0].named_children) != 1:
+        return None
+    return _text(strings[0].named_children[0], source)
 
 
 def _top_level_caller(call, root) -> tuple[str, int] | None:

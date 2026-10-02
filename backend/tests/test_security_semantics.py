@@ -211,3 +211,69 @@ def normalize(value):
     assert control["category"] == "command_argument_escaping"
     assert "safe" not in control
     assert "vulnerability" not in control
+
+
+def test_javascript_request_properties_are_structural_sources():
+    parsed = parse_source(
+        "function route(req) { const id = req.params.id; return id; }",
+        "JavaScript",
+    )
+    result = classify_security_semantics(parsed)
+
+    assert result["sources"][0]["category"] == "http_path_input"
+    assert result["sources"][0]["match_type"] == "STRUCTURAL_PATTERN"
+
+
+def test_filesystem_sinks_and_path_controls_are_observed():
+    parsed = parse_source(
+        '''
+from pathlib import Path
+from flask import request
+
+def read_file():
+    name = request.args.get("name")
+    target = Path("/srv/data", name).resolve()
+    return target.read_text()
+'''.strip(),
+        "Python",
+    )
+    result = classify_security_semantics(parsed)
+
+    assert {item["target"] for item in result["sinks"]} == {"target.read_text"}
+    assert any(item["category"] == "path_normalization" for item in result["security_controls"])
+
+
+def test_unrelated_reopen_call_is_not_a_filesystem_sink():
+    parsed = parse_source("def run():\n    reopen()\n", "Python")
+    assert classify_security_semantics(parsed)["sinks"] == []
+
+
+def test_flask_route_parameter_is_bound_as_path_input():
+    parsed = parse_source(
+        '''from flask import Flask
+app = Flask(__name__)
+@app.get("/files/<path:name>")
+def download(name):
+    return open(name).read()
+''',
+        "Python",
+    )
+    result = classify_security_semantics(parsed)
+    source = result["sources"][0]
+    assert source["category"] == "http_path_input"
+    assert source["binding"] == "name"
+
+
+def test_authorization_sensitive_object_access_is_only_a_sink_observation():
+    parsed = parse_source(
+        '''from flask import request
+def detail():
+    object_id = request.args.get("id")
+    return Document.query.get(object_id)
+''',
+        "Python",
+    )
+    result = classify_security_semantics(parsed)
+    assert result["sinks"][0]["category"] == (
+        "authorization_sensitive_object_access"
+    )

@@ -77,6 +77,8 @@ Current verified baseline (2026-09-24): **155 backend tests passed** and the fro
 
 Latest lifecycle continuation: supported single-file SQL/command findings can persist a complete patched copy encrypted at rest, download it without overwriting the original, and download a finding security report. The backend lifecycle endpoint is the only status source used by Finding Detail. Static re-scan/re-trace can pass, but runtime verification, functional execution, and replay remain `NOT_AVAILABLE` because this host has no reviewed Docker/Podman/WSL isolation runtime; closure therefore remains `CLOSURE_INCOMPLETE`.
 
+Latest understanding continuation (2026-10-03): the existing ZIP intake now reports bounded extraction evidence and rejects binary source members in addition to traversal, links, nested archives, duplicate paths, encryption, and resource-limit violations. Framework evidence covers Flask, FastAPI, Django, Express, and React. Statically resolved Python imports, JavaScript named imports, and destructured CommonJS `require` calls can form a one-call-boundary cross-file Source → Argument → Parameter → Sink path and persisted project finding. Path Traversal is now a partial static pack with filesystem sinks and observed normalization/containment controls; exploitability, automatic path repair, and closure remain unavailable.
+
 - `backend/app/intake.py`: bounded UTF-8 source intake and artifact metadata.
 - `backend/app/language_detection.py`: extension, shebang, and Tree-sitter syntax evidence with explicit conflict/unknown handling; only Python and JavaScript/JSX have parsers.
 - `backend/app/parser_engine.py`: Tree-sitter structure, assignments, calls, and arguments.

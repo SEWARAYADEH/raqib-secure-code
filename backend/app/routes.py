@@ -591,11 +591,18 @@ def finding_lifecycle(analysis_id: str, finding_id: str):
             return api_error(status_code=400, code="INVALID_FINDING_SELECTOR",
                              message="The file selector is too long.")
         files = record["result"].get("files") or [record["result"]]
-        matches = [(file, candidate) for file in files
-                   if not file_path or (file.get("artifact", {}).get("relative_path")
-                                        or file.get("artifact", {}).get("filename")) == file_path
-                   for candidate in file.get("security_analysis", {}).get("candidates", [])
-                   if candidate.get("id") == finding_id]
+        if file_path == "@project" and record["result"].get("files"):
+            matches = [
+                (record["result"], candidate)
+                for candidate in record["result"].get("security_analysis", {}).get("candidates", [])
+                if candidate.get("id") == finding_id
+            ]
+        else:
+            matches = [(file, candidate) for file in files
+                       if not file_path or (file.get("artifact", {}).get("relative_path")
+                                            or file.get("artifact", {}).get("filename")) == file_path
+                       for candidate in file.get("security_analysis", {}).get("candidates", [])
+                       if candidate.get("id") == finding_id]
         if len(matches) != 1:
             return api_error(status_code=404, code="FINDING_NOT_FOUND",
                              message="The finding is missing or ambiguous.")
@@ -632,8 +639,11 @@ def finding_lifecycle(analysis_id: str, finding_id: str):
                                  download_name=f"raqib-security-report-{normalized_id}.json")
         elif download is None:
             return jsonify({"request_id": g.request_id, "analysis_id": normalized_id,
-                            "file_path": file.get("artifact", {}).get("relative_path")
-                            or file.get("artifact", {}).get("filename"),
+                            "file_path": (
+                                "@project" if file_path == "@project"
+                                else file.get("artifact", {}).get("relative_path")
+                                or file.get("artifact", {}).get("filename")
+                            ),
                             "lifecycle": lifecycle})
         else:
             return api_error(status_code=400, code="INVALID_DOWNLOAD",

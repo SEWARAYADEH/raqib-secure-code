@@ -2,6 +2,8 @@
 
 Raqeeb reports must distinguish observation, candidate, verified exploitability, remediation, and closure.
 
+Project reports also include cross-file findings only when the stored evidence uniquely resolves the import binding, caller, argument position, callee parameter, and sensitive sink. These findings are project-scoped; patch, runtime, and closure remain unavailable unless their independent evidence gates exist.
+
 ## Executive report
 
 Shows:

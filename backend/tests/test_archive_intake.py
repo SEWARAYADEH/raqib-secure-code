@@ -46,6 +46,13 @@ def test_safe_sources_extract_inside_temporary_workspace(tmp_path):
         )
 
         assert result["source_file_count"] == 2
+        assert result["member_count"] == 3
+        assert result["total_expanded_bytes"] > result["total_source_bytes"]
+        assert result["skipped_files"] == [{
+            "relative_path": "README.md",
+            "size_bytes": len(b"documentation"),
+            "reason": "UNSUPPORTED_EXTENSION",
+        }]
         assert (active_path / "src" / "app.py").is_file()
         assert not (active_path / "README.md").exists()
 
@@ -145,6 +152,49 @@ def test_nested_archive_is_rejected(tmp_path):
                         "nested.zip": b"not-really-a-zip",
                     }
                 ),
+                workspace=workspace,
+            )
+
+
+def test_binary_source_member_is_rejected(tmp_path):
+    with AnalysisWorkspace(str(tmp_path)) as workspace:
+        with pytest.raises(SourceArchiveValidationError, match="Binary source"):
+            extract_source_archive(
+                filename="project.zip",
+                content=_zip({"src/app.py": b"print('ok')\x00payload"}),
+                workspace=workspace,
+            )
+
+
+def test_source_file_count_limit_is_enforced(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.archive_intake.MAX_SOURCE_FILES", 1)
+    with AnalysisWorkspace(str(tmp_path)) as workspace:
+        with pytest.raises(SourceArchiveValidationError, match="source-file limit"):
+            extract_source_archive(
+                filename="project.zip",
+                content=_zip({"one.py": b"a=1", "two.py": b"b=2"}),
+                workspace=workspace,
+            )
+
+
+def test_total_expanded_size_limit_is_enforced(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.archive_intake.MAX_TOTAL_EXPANDED_BYTES", 8)
+    with AnalysisWorkspace(str(tmp_path)) as workspace:
+        with pytest.raises(SourceArchiveValidationError, match="expanded-size"):
+            extract_source_archive(
+                filename="project.zip",
+                content=_zip({"one.py": b"123456789"}),
+                workspace=workspace,
+            )
+
+
+def test_member_count_limit_is_enforced(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.archive_intake.MAX_ARCHIVE_MEMBERS", 1)
+    with AnalysisWorkspace(str(tmp_path)) as workspace:
+        with pytest.raises(SourceArchiveValidationError, match="member-count"):
+            extract_source_archive(
+                filename="project.zip",
+                content=_zip({"one.py": b"a=1", "notes.txt": b"ok"}),
                 workspace=workspace,
             )
 

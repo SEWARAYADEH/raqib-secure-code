@@ -11,6 +11,11 @@ from app.security_packs.command_injection import (
     NON_SHELL_ARGUMENT_FLOW,
     assess_command_path,
 )
+from app.security_packs.path_traversal import (
+    PATH_CONTROL_OBSERVED,
+    PATH_INFLUENCE_CANDIDATE,
+    assess_path_path,
+)
 
 
 STANDARD_CANDIDATES = {
@@ -28,6 +33,14 @@ STANDARD_CANDIDATES = {
     },
     "sql_execution_candidate": {
         "cwe": "CWE-89",
+        "owasp": "A03:2021-Injection",
+    },
+    "filesystem_path_operation": {
+        "cwe": "CWE-22",
+        "owasp": "A01:2021-Broken Access Control",
+    },
+    "html_dom_rendering": {
+        "cwe": "CWE-79",
         "owasp": "A03:2021-Injection",
     },
 }
@@ -73,6 +86,36 @@ def build_finding_candidates(
             candidate = _candidate_from_path(artifact, path)
             candidate["pack_assessment"] = assessment
             candidates.append(candidate)
+        elif path["sink"]["category"] == "filesystem_path_operation":
+            assessment = assess_path_path(path, parsed)
+            if assessment["status"] == PATH_CONTROL_OBSERVED:
+                non_candidates.append({
+                    "source": path["source"],
+                    "sink": path["sink"],
+                    "trace": path["trace"],
+                    "assessment": assessment,
+                })
+                continue
+            candidate = _candidate_from_path(artifact, path)
+            candidate["pack_assessment"] = assessment
+            candidates.append(candidate)
+        elif path["sink"]["category"] in {
+            "html_dom_rendering", "authorization_sensitive_object_access"
+        }:
+            non_candidates.append({
+                "source": path["source"],
+                "sink": path["sink"],
+                "trace": path["trace"],
+                "assessment": {
+                    "status": "PACK_NOT_IMPLEMENTED",
+                    "pack": (
+                        "XSS" if path["sink"]["category"] == "html_dom_rendering"
+                        else "BROKEN_AUTHORIZATION_IDOR"
+                    ),
+                    "basis": "FLOW_OBSERVED_WITHOUT_PACK_CLASSIFICATION",
+                    "runtime_effectiveness_verified": False,
+                },
+            })
         else:
             candidates.append(_candidate_from_path(artifact, path))
     return {
@@ -97,6 +140,75 @@ def build_finding_candidates(
             ],
         },
     }
+
+
+def build_project_finding_candidates(
+    *, artifact: dict, paths: list[dict], file_results: list[dict]
+) -> dict:
+    parsed_by_file = {
+        item["artifact"]["relative_path"]: item["structure"]
+        for item in file_results
+    }
+    candidates = []
+    non_candidates = []
+    for path in paths:
+        parsed = parsed_by_file[path["target_file"]]
+        candidate, non_candidate = _assess_candidate_path(artifact, path, parsed)
+        if candidate:
+            candidate["cross_file"] = {
+                "source_file": path["source_file"],
+                "target_file": path["target_file"],
+                "resolution": path["resolution"],
+            }
+            candidates.append(candidate)
+        elif non_candidate:
+            non_candidates.append(non_candidate)
+    return {
+        "schema_version": "1.0",
+        "scope": "PROJECT_CROSS_FILE",
+        "candidates": candidates,
+        "non_candidates": non_candidates,
+        "counts": {
+            "candidates": len(candidates),
+            "non_candidate_paths": len(non_candidates),
+            "verified_vulnerabilities": 0,
+            "closed_findings": 0,
+        },
+    }
+
+
+def _assess_candidate_path(
+    artifact: dict, path: dict, parsed: dict
+) -> tuple[dict | None, dict | None]:
+    category = path["sink"]["category"]
+    assessment = None
+    candidate_status = True
+    if category == "sql_execution_candidate":
+        assessment = assess_sql_path(path, parsed)
+        candidate_status = assessment["status"] == QUERY_TEXT_INFLUENCE
+    elif category == "process_execution":
+        assessment = assess_command_path(path, parsed)
+        candidate_status = assessment["status"] != NON_SHELL_ARGUMENT_FLOW
+    elif category == "filesystem_path_operation":
+        assessment = assess_path_path(path, parsed)
+        candidate_status = assessment["status"] != PATH_CONTROL_OBSERVED
+    elif category in {"html_dom_rendering", "authorization_sensitive_object_access"}:
+        assessment = {
+            "status": "PACK_NOT_IMPLEMENTED",
+            "pack": "XSS" if category == "html_dom_rendering" else "BROKEN_AUTHORIZATION_IDOR",
+            "basis": "FLOW_OBSERVED_WITHOUT_PACK_CLASSIFICATION",
+            "runtime_effectiveness_verified": False,
+        }
+        candidate_status = False
+    if not candidate_status:
+        return None, {
+            "source": path["source"], "sink": path["sink"],
+            "trace": path["trace"], "assessment": assessment,
+        }
+    candidate = _candidate_from_path(artifact, path)
+    if assessment:
+        candidate["pack_assessment"] = assessment
+    return candidate, None
 
 
 def _candidate_from_path(artifact: dict, path: dict) -> dict:
