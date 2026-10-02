@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { getStoredAnalysis } from '../api/endpoints';
 import AppShell from '../components/AppShell';
+import AnimatedCount from '../components/AnimatedCount';
 import AsyncState from '../components/AsyncState';
 import Icon from '../components/Icon';
 import StatusBadge from '../components/StatusBadge';
@@ -65,11 +66,24 @@ function ResultOverview({ payload, ar, navigate }) {
     [ar ? 'الملفات' : 'Files', project?.counts?.files ?? rawFiles.length],
     [ar ? 'المسارات' : 'Routes', project?.counts?.routes ?? rawFiles.reduce((sum, file) => sum + (file.application_understanding?.counts?.routes ?? 0), 0)],
     [ar ? 'الدوال' : 'Functions', rawFiles.reduce((sum, file) => sum + (file.structure?.counts?.functions ?? 0), 0)],
+    [ar ? 'المصادر' : 'Sources', rawFiles.reduce((sum, file) => sum + (file.security_semantics?.counts?.sources ?? 0), 0)],
+    [ar ? 'المصارف' : 'Sinks', rawFiles.reduce((sum, file) => sum + (file.security_semantics?.counts?.sinks ?? 0), 0)],
     [ar ? 'مرشحات أمنية' : 'Security candidates', candidates.length],
   ];
+  const flow = [
+    ['Upload', 'SAFE_INTAKE'], ['Parse', 'PARSING'], ['Trace', 'DATA_FLOW_TRACE'],
+    ['Finding', 'SECURITY_ANALYSIS'], ['Verify', 'EXPLOITABILITY_VERIFICATION'],
+  ].map(([label, stage]) => {
+    const statuses = rawFiles.map((file) => file.pipeline?.stages?.find((item) => item.name === stage)?.status ?? 'UNRESOLVED');
+    return { label, status: statuses.every((item) => item === statuses[0]) ? (statuses[0] ?? 'UNRESOLVED') : 'MIXED' };
+  });
   const analysisId = payload.record?.persisted ? payload.record.analysis_id : null;
   return <>
-    <section className="result-overview" aria-label={ar ? 'ملخص التحليل' : 'Analysis summary'}>{values.map(([label, value]) => <div key={label}><span>{label}</span><strong dir="auto">{value}</strong></div>)}</section>
+    <section className="recorded-scan-flow" aria-label={ar ? 'حالة مراحل التحليل المحفوظة' : 'Recorded analysis stage states'}>
+      <div><strong>{ar ? 'مسار التحليل المحفوظ' : 'Recorded scan flow'}</strong><small>{ar ? 'الحالات من المحرك، وليست تقديرًا لحظيًا للتقدم.' : 'Engine-reported states, not estimated live progress.'}</small></div>
+      <ol>{flow.map(({ label, status }) => <li className={status === 'COMPLETED' || status === 'CANDIDATES_OBSERVED' || status === 'COMPLETED_NO_CANDIDATE' ? 'stage-observed' : 'stage-limited'} key={label}><b>{label}</b><small>{status.replaceAll('_', ' ')}</small></li>)}</ol>
+    </section>
+    <section className="result-overview" aria-label={ar ? 'ملخص التحليل' : 'Analysis summary'}>{values.map(([label, value]) => <div key={label}><span>{label}</span><strong dir="auto">{typeof value === 'number' ? <AnimatedCount value={value} /> : value}</strong></div>)}</section>
     <section className="result-findings"><h2>{ar ? 'المشاكل المكتشفة' : 'Detected problems'}</h2><p>{ar ? 'هذه مرشحات ساكنة، وليست ثغرات مثبتة أو إصلاحات مغلقة.' : 'These are static candidates, not verified vulnerabilities or closed repairs.'}</p>
       {candidates.length ? <div className="result-finding-list">{candidates.map(({ finding, path }) => <article key={`${path}:${finding.id}`}><div><strong>{finding.pack_assessment?.pack?.replaceAll('_', ' ') ?? finding.sink?.category ?? 'Security candidate'}</strong><small dir="ltr">{path} · {finding.scope?.function ?? 'Unresolved'}() · Line {finding.sink?.start_line ?? 'Unknown'}</small></div><span className="candidate-state">CANDIDATE</span>{analysisId && <button className="button button-ghost compact-button" onClick={() => navigate(`/projects/${encodeURIComponent(analysisId)}/findings/${encodeURIComponent(finding.id)}?${new URLSearchParams({ file: path })}`)} type="button">{ar ? 'افتح الدليل' : 'Inspect evidence'}</button>}</article>)}</div> : <div className="analysis-empty">{ar ? 'لا توجد مرشحات ضمن النطاق المدعوم. هذا لا يثبت خلو المشروع من الثغرات.' : 'No candidates in supported coverage. This does not prove the project is safe.'}</div>}
       {analysisId && candidates.length > 1 && <button className="button button-ghost" onClick={() => navigate(`/projects/${encodeURIComponent(analysisId)}/findings`)} type="button">{ar ? 'عرض كل المشاكل المكتشفة' : 'View all detected problems'}</button>}
