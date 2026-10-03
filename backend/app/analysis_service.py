@@ -31,7 +31,7 @@ from flask import current_app, has_app_context
 
 
 ANALYSIS_SCHEMA_VERSION = "1.0"
-ANALYZER_VERSION = "0.3.0"
+ANALYZER_VERSION = "0.4.0"
 
 
 class AnalysisValidationError(ValueError):
@@ -159,7 +159,9 @@ def analyze_source_file(
         "inter_function_data_flow": inter_function_data_flow,
         "application_model": application_model,
         "security_analysis": findings,
-        "security_packs": pack_coverage(),
+        "security_packs": pack_coverage(
+            runtime_available=verification_runtime_available()
+        ),
         "hybrid_security": hybrid_security,
         "exploitability_verification": verification,
         "pipeline": pipeline,

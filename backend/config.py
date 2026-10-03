@@ -69,6 +69,8 @@ class Config:
         "ISOLATION_RUNTIME_AVAILABLE",
         "false",
     ).lower() == "true"
+    RUNTIME_OCI_ENGINE = os.getenv("RUNTIME_OCI_ENGINE", "")
+    RUNTIME_OCI_IMAGE = os.getenv("RUNTIME_OCI_IMAGE", "")
     OSV_ADVISORY_LOOKUP_ENABLED = os.getenv(
         "OSV_ADVISORY_LOOKUP_ENABLED",
         "false",

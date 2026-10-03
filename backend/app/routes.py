@@ -45,7 +45,11 @@ from app.intake import (
 from app.finding_lifecycle import build_finding_lifecycle
 from app.security_packs.registry import pack_coverage
 from app.repair_proposals import RepairNotAvailable, propose_repair
-from app.runtime_capabilities import verification_runtime_available
+from app.runtime_capabilities import (
+    get_runtime_verifier,
+    verification_runtime_available,
+    verification_runtime_capability,
+)
 
 
 api = Blueprint(
@@ -97,17 +101,22 @@ def analysis_options():
                 "JavaScript JSX",
             ],
             "project_source_extensions": sorted(SOURCE_EXTENSIONS),
-            "security_packs": pack_coverage(),
+            "security_packs": pack_coverage(
+                runtime_available=verification_runtime_available()
+            ),
             "workflow_stages": [
                 {"id": "UPLOAD", "status": "AVAILABLE"},
                 {"id": "UNDERSTAND", "status": "PARTIAL"},
                 {"id": "TRACE", "status": "PARTIAL"},
                 {"id": "DETECT", "status": "PARTIAL"},
-                {"id": "VERIFY", "status": "NOT_AVAILABLE"},
+                {"id": "VERIFY", "status": (
+                    "PARTIAL" if verification_runtime_available() else "NOT_AVAILABLE"
+                ), "scope": "REVIEWED_SINGLE_FILE_SQL_COMMAND_REPLAY"},
                 {"id": "FIX", "status": "PARTIAL", "scope": "SUPPORTED_PYTHON_PROPOSAL"},
                 {"id": "TEST", "status": "PARTIAL", "scope": "PINNED_TRUSTED_FIXTURE"},
                 {"id": "RE_VERIFY", "status": "PARTIAL", "scope": "STATIC_RE_SCAN_AND_RE_TRACE"},
-                {"id": "EVIDENCE", "status": "NOT_AVAILABLE"},
+                {"id": "EVIDENCE", "status": "PARTIAL",
+                 "scope": "SIGNED_REPAIR_RUNTIME_AND_CLOSURE_RECORDS"},
             ],
             "safety": {
                 "uploaded_code_execution": False,
@@ -160,6 +169,7 @@ def configuration_status():
             ),
             "uploaded_code_execution": False,
             "isolation_runtime_available": verification_runtime_available(),
+            "isolation_runtime": verification_runtime_capability(),
         },
         "storage": {
             "enabled": bool(config["ANALYSIS_STORE_ENABLED"]),
@@ -527,6 +537,114 @@ def create_repair_proposal(analysis_id: str):
                                        ("evidence_id", "created_at", "integrity")}})
 
 
+@api.post("/v1/analyses/<analysis_id>/findings/<finding_id>/verify-repair")
+def verify_repair(analysis_id: str, finding_id: str):
+    """Replay a saved patch only inside the reviewed, capability-tested OCI runtime."""
+    principal = resolve_analysis_principal()
+    if principal is None:
+        return api_error(status_code=401, code="ANALYSIS_ACCESS_DENIED",
+                         message="Analysis access is not authorized.")
+    if not principal.permits(SCOPE_ANALYSIS_CREATE):
+        return api_error(status_code=403, code="ANALYSIS_SCOPE_FORBIDDEN",
+                         message="The principal cannot run verification.")
+    try:
+        normalized_id = str(uuid.UUID(analysis_id))
+    except ValueError:
+        return api_error(status_code=404, code="ANALYSIS_NOT_FOUND",
+                         message="The analysis does not exist.")
+    store = current_app.extensions.get("analysis_store")
+    if store is None:
+        return api_error(status_code=503, code="ANALYSIS_STORE_DISABLED",
+                         message="Saved analysis is required.")
+    if request.mimetype != "multipart/form-data":
+        return api_error(status_code=415, code="UNSUPPORTED_MEDIA_TYPE",
+                         message="Use multipart/form-data.")
+    uploaded = request.files.getlist("file")
+    if len(uploaded) != 1 or not uploaded[0].filename:
+        return api_error(status_code=400, code="INVALID_VERIFICATION_INPUT",
+                         message="The exact original file is required.")
+    content = uploaded[0].stream.read(MAX_REPAIR_FILE_BYTES + 1)
+    if len(content) > MAX_REPAIR_FILE_BYTES:
+        return api_error(status_code=413, code="SOURCE_FILE_TOO_LARGE",
+                         message="The verification limit is 256 KB.")
+    try:
+        record = store.get(normalized_id)
+        if record["owner_subject"] != principal.subject:
+            return api_error(status_code=403, code="ANALYSIS_RECORD_FORBIDDEN",
+                             message="The analysis belongs to another principal.")
+        result = record["result"]
+        if result.get("analysis", {}).get("scope") != "FILE":
+            return api_error(status_code=422, code="VERIFICATION_SCOPE_UNSUPPORTED",
+                             message="Isolated verification currently supports one Python file.")
+        if (uploaded[0].filename != result["artifact"]["filename"]
+                or hashlib.sha256(content).hexdigest() != record["artifact_sha256"]):
+            return api_error(status_code=409, code="ORIGINAL_FILE_MISMATCH",
+                             message="Re-upload the exact immutable analysis input.")
+        matches = [item for item in result["security_analysis"]["candidates"]
+                   if item["id"] == finding_id]
+        if len(matches) != 1:
+            return api_error(status_code=404, code="FINDING_NOT_FOUND",
+                             message="The finding is missing or ambiguous.")
+        artifact = store.get_patched_artifact(
+            analysis_id=normalized_id, owner_subject=principal.subject,
+            finding_id=finding_id,
+        )
+        if artifact is None:
+            return api_error(status_code=409, code="PATCHED_ARTIFACT_REQUIRED",
+                             message="Create and save a supported patch first.")
+        verifier = get_runtime_verifier()
+        capability = verifier.capability()
+        if not capability["available"]:
+            return api_error(status_code=503, code="ISOLATION_RUNTIME_UNAVAILABLE",
+                             message=capability["reason"])
+        runtime_evidence = verifier.verify_repair(
+            filename=uploaded[0].filename, original=content,
+            patched=artifact[0], finding=matches[0],
+        )
+        saved_verification = store.create_verification_evidence(
+            analysis_id=normalized_id, owner_subject=principal.subject,
+            finding_id=finding_id, repair_evidence_id=artifact[1]["evidence_id"],
+            evidence=runtime_evidence,
+        )
+        lifecycle = build_finding_lifecycle(
+            finding=matches[0], analysis=result, saved_repair=artifact[1],
+            saved_verification=saved_verification,
+            runtime_capability=capability,
+        )
+        closure_record = None
+        if lifecycle["closure"]["verified_closed"]:
+            closure_record = store.create_closure_record(
+                analysis_id=normalized_id, owner_subject=principal.subject,
+                finding_id=finding_id,
+                verification_evidence_id=saved_verification["evidence_id"],
+                closure=lifecycle["closure"],
+            )
+            lifecycle = build_finding_lifecycle(
+                finding=matches[0], analysis=result, saved_repair=artifact[1],
+                saved_verification=saved_verification, closure_record=closure_record,
+                runtime_capability=capability,
+            )
+    except AnalysisRecordNotFoundError:
+        return api_error(status_code=404, code="ANALYSIS_NOT_FOUND",
+                         message="The analysis does not exist.")
+    except PermissionError:
+        return api_error(status_code=403, code="ANALYSIS_RECORD_FORBIDDEN",
+                         message="The analysis belongs to another principal.")
+    except AnalysisRecordIntegrityError:
+        return api_error(status_code=500, code="ANALYSIS_INTEGRITY_FAILURE",
+                         message="Saved lifecycle evidence failed integrity verification.")
+    except (RuntimeError, ValueError) as exc:
+        return api_error(status_code=422, code="VERIFICATION_NOT_AVAILABLE",
+                         message=str(exc))
+    return jsonify({
+        "request_id": g.request_id,
+        "verification": {key: saved_verification[key] for key in
+                         ("evidence_id", "created_at", "integrity", "evidence")},
+        "closure_record": closure_record,
+        "lifecycle": lifecycle,
+    })
+
+
 @api.get("/v1/analyses/<analysis_id>/repair-evidence/<finding_id>")
 def latest_repair_evidence(analysis_id: str, finding_id: str):
     principal = resolve_analysis_principal()
@@ -611,8 +729,18 @@ def finding_lifecycle(analysis_id: str, finding_id: str):
             analysis_id=normalized_id, owner_subject=principal.subject,
             finding_id=finding_id,
         ) if record["result"].get("analysis", {}).get("scope") == "FILE" else None
+        saved_verification = store.latest_verification_evidence(
+            analysis_id=normalized_id, owner_subject=principal.subject,
+            finding_id=finding_id,
+        ) if saved else None
+        closure_record = store.latest_closure_record(
+            analysis_id=normalized_id, owner_subject=principal.subject,
+            finding_id=finding_id,
+        ) if saved_verification else None
         lifecycle = build_finding_lifecycle(
             finding=finding, analysis=file, saved_repair=saved,
+            saved_verification=saved_verification, closure_record=closure_record,
+            runtime_capability=verification_runtime_capability(),
         )
         download = request.args.get("download")
         if download == "patched":

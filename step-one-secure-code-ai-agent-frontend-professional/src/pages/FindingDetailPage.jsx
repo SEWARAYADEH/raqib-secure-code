@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { createRepairProposal, findingLifecycleUrl, getFindingLifecycle, getRepairEvidence, getStoredAnalysis } from '../api/endpoints';
+import { createRepairProposal, findingLifecycleUrl, getFindingLifecycle, getRepairEvidence, getStoredAnalysis, verifyRepair } from '../api/endpoints';
 import AppShell from '../components/AppShell';
 import AsyncState from '../components/AsyncState';
 import useAsyncResource from '../hooks/useAsyncResource';
@@ -67,6 +67,8 @@ export default function FindingDetailPage() {
   const [proposal, setProposal] = useState(null);
   const [repairError, setRepairError] = useState('');
   const [repairBusy, setRepairBusy] = useState(false);
+  const [verificationBusy, setVerificationBusy] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
   const { data, error, loading, reload } = useAsyncResource(() => getStoredAnalysis(projectId), [projectId]);
   const { data: savedRepair, reload: reloadRepair } = useAsyncResource(() => getRepairEvidence(projectId, findingId), [projectId, findingId]);
   const fileSelector = searchParams.get('file');
@@ -78,7 +80,7 @@ export default function FindingDetailPage() {
   const storedProposal = savedRepair?.saved_evidence?.evidence;
   const activeProposal = proposal?.finding_id === finding?.id ? proposal : storedProposal?.finding_id === finding?.id ? storedProposal : null;
   const path = match?.file?.artifact?.relative_path ?? match?.file?.artifact?.filename ?? 'Unknown';
-  const canPropose = fileSelector !== '@project' && ['sql_execution_candidate', 'process_execution'].includes(finding?.sink?.category);
+  const canPropose = fileSelector !== '@project' && ['sql_execution_candidate', 'process_execution', 'filesystem_path_operation'].includes(finding?.sink?.category);
 
   async function requestProposal(event) {
     event.preventDefault();
@@ -98,6 +100,20 @@ export default function FindingDetailPage() {
     }
   }
 
+  async function requestVerification() {
+    if (!originalFile || !finding || !activeProposal) return;
+    setVerificationBusy(true);
+    setVerificationError('');
+    try {
+      await verifyRepair({ analysisId: projectId, findingId: finding.id, file: originalFile });
+      reloadLifecycle();
+    } catch (failure) {
+      setVerificationError(failure instanceof Error ? failure.message : 'Isolated verification unavailable.');
+    } finally {
+      setVerificationBusy(false);
+    }
+  }
+
   return <AppShell><section className="evidence-page">
     <AsyncState error={error} loading={loading} loadingLabel={ar ? 'تحميل الدليل المحفوظ…' : 'Loading saved evidence…'} onRetry={reload} />
     {!loading && !error && !match && <div className="empty-panel">{ar ? 'النتيجة غير موجودة أو معرّفها غير فريد. افتحها من قائمة الملفات.' : 'Finding not found or its ID is ambiguous. Open it from the file list.'}</div>}
@@ -111,20 +127,21 @@ export default function FindingDetailPage() {
         <div><span className="eyebrow">{lifecycle?.patch?.status ?? 'LOADING'}</span><h2>{ar ? 'ولّد إصلاحًا مقترحًا' : 'Generate a proposed repair'}</h2><p>{ar ? 'أعد اختيار الملف الأصلي نفسه. نتحقق من بصمته ونولّد تعديلًا محدودًا دون تشغيله أو تغيير الأصل.' : 'Select the exact original again. We verify its digest and generate a narrow patch without running or overwriting it.'}</p></div>
         <form onSubmit={requestProposal}><label htmlFor="repair-original-file">{ar ? 'الملف الأصلي' : 'Original file'}</label><input accept=".py" id="repair-original-file" onChange={(event) => { setOriginalFile(event.target.files?.[0] ?? null); setProposal(null); setRepairError(''); }} required type="file" /><button className="button button-primary" disabled={repairBusy || !originalFile} type="submit">{repairBusy ? (ar ? 'جارٍ توليد المقترح…' : 'Generating…') : (ar ? 'ولّد الإصلاح' : 'Generate proposal')}</button></form>
         {repairError && <p className="form-error" role="alert">{repairError}</p>}
-        {activeProposal && <p role="status">{ar ? 'دليل الإصلاح المقترح محفوظ. راجع الفرق وبوابات الإغلاق أدناه.' : 'Proposed repair evidence is saved. Review the diff and closure gates below.'}</p>}
+        {activeProposal && <div><p role="status">{ar ? 'دليل الإصلاح المقترح محفوظ. راجع الفرق ثم شغّل التحقق المعزول.' : 'Proposed repair evidence is saved. Review the diff, then run isolated verification.'}</p><button className="button button-secondary" disabled={verificationBusy || !originalFile} onClick={requestVerification} type="button">{verificationBusy ? (ar ? 'جارٍ التحقق داخل العزل…' : 'Verifying in isolation…') : (ar ? 'تحقق واختبر وأعد التشغيل' : 'Verify, test, and replay')}</button></div>}
+        {verificationError && <p className="form-error" role="alert">{verificationError}</p>}
       </section>}
       <div className="evidence-sequence">
         <EvidenceSection label="WHERE" title={ar ? 'وين المشكلة؟' : 'Where?'}><code dir="ltr">{finding.sink?.target ?? 'Unknown'} · {path}:{finding.sink?.start_line ?? '?'}</code></EvidenceSection>
         <EvidenceSection label="WHY" title={ar ? 'ليش اعتُبرت مرشحًا؟' : 'Why a candidate?'}><p>{finding.root_cause?.statement ?? 'Unresolved'}</p><small>{finding.pack_assessment?.basis ?? finding.evidence_strength}</small></EvidenceSection>
         <EvidenceSection label="TRACE" title={ar ? 'مسار البيانات المرصود' : 'Observed data path'}><TraceFlow ar={ar} canPropose={canPropose} key={finding.id} steps={finding.trace} /></EvidenceSection>
         <EvidenceSection label="CODE" title={ar ? 'مقاطع الكود المحفوظة' : 'Saved code excerpts'}><div className="code-evidence-grid">{['source', 'sink'].map((kind) => <div key={kind}><strong>{kind.toUpperCase()} · {path}</strong><pre dir="ltr"><code>{finding.code_evidence?.[kind]?.length ? finding.code_evidence[kind].map((row) => `${row.line}  ${row.text}${row.truncated ? ' …' : ''}`).join('\n') : 'Excerpt unavailable for this saved record.'}</code></pre></div>)}</div></EvidenceSection>
-        <EvidenceSection label="VERIFICATION" title={ar ? 'هل تم إثباتها؟' : 'Verified?'}><strong>{lifecycle?.runtime_before?.status ?? 'LOADING'}</strong><p>{ar ? 'المسار الساكن لا يثبت قابلية الاستغلال.' : 'A static path does not prove exploitability.'}</p></EvidenceSection>
+        <EvidenceSection label="VERIFICATION" title={ar ? 'هل تم إثباتها؟' : 'Verified?'} unavailable={lifecycle?.runtime_before?.status !== 'PASS'}><strong>{lifecycle?.runtime_before?.status ?? 'LOADING'}</strong><p>{lifecycle?.runtime_before?.status === 'PASS' ? (ar ? 'أُعيد إنتاج المسار قبل الإصلاح داخل منفذ OCI معزول.' : 'The pre-fix path was reproduced inside the isolated OCI executor.') : (ar ? 'المسار الساكن لا يثبت قابلية الاستغلال وحده.' : 'A static path alone does not prove exploitability.')}</p></EvidenceSection>
         <EvidenceSection label="ROOT CAUSE" title={ar ? 'السبب الجذري' : 'Root cause'}><strong>{lifecycle?.stages?.find((stage) => stage.id === 'ROOT_CAUSE')?.status ?? 'LOADING'}</strong><p>{lifecycle?.root_cause?.explanation ?? lifecycle?.root_cause?.statement ?? 'Unresolved'}</p>{lifecycle?.root_cause?.category && <code dir="ltr">{lifecycle.root_cause.category} · {lifecycle.root_cause.source_location?.line ?? '?'} → {lifecycle.root_cause.sink_location?.line ?? '?'}</code>}</EvidenceSection>
         <EvidenceSection label="FIX" title={ar ? 'الإصلاح' : 'Fix'} unavailable={!activeProposal}><strong>{lifecycle?.patch?.status ?? 'LOADING'}</strong>{activeProposal ? <><p>{ar ? 'التعديل على نسخة منفصلة؛ الاختبار التشغيلي يحتاج عزلًا ولم يُنفّذ.' : 'The patch is a separate copy; runtime testing requires isolation and was not run.'}</p><code dir="ltr">{activeProposal.original_sha256} → {activeProposal.updated_sha256}</code>{lifecycle?.patch?.download_available && <a className="button button-secondary" href={findingLifecycleUrl(projectId, findingId, path, 'patched')}>{ar ? 'تنزيل الملف المعدّل' : 'Download patched file'}</a>}</> : <p>{ar ? 'أعد رفع الأصل في الأعلى لتوليد تعديل مدعوم لهذا النمط.' : 'Re-upload the original above to generate a supported patch.'}</p>}</EvidenceSection>
         <EvidenceSection label="DIFF" title={ar ? 'قبل / بعد' : 'Before / after'} unavailable={!activeProposal}>{activeProposal ? <ProposalDiff diff={activeProposal.diff} /> : <strong>NOT AVAILABLE</strong>}</EvidenceSection>
-        <EvidenceSection label="TESTS" title={ar ? 'اختبار الوظيفة' : 'Functional tests'} unavailable><strong>{lifecycle?.functional_test?.status ?? 'LOADING'}</strong><p>{lifecycle?.functional_test?.reason}</p></EvidenceSection>
+        <EvidenceSection label="TESTS" title={ar ? 'اختبار الوظيفة' : 'Functional tests'} unavailable={lifecycle?.functional_test?.status !== 'PASS'}><strong>{lifecycle?.functional_test?.status ?? 'LOADING'}</strong><p>{lifecycle?.functional_test?.scope ?? lifecycle?.functional_test?.reason}</p></EvidenceSection>
         <EvidenceSection label="RE-VERIFY" title={ar ? 'إعادة الفحص والتتبع' : 'Re-scan and re-trace'} unavailable={!lifecycle?.re_scan?.status}><strong className={`rescan-state ${lifecycle?.re_scan?.status === 'NO_MATCH_OBSERVED' ? 'rescan-clear' : lifecycle?.re_scan?.status ? 'rescan-alert' : ''}`}>STATIC RE-SCAN: {lifecycle?.re_scan?.status ?? 'LOADING'}</strong><p>STATIC RE-TRACE: {lifecycle?.re_trace?.status ?? 'LOADING'}</p>{lifecycle?.re_trace?.after_paths?.map((item, index) => <p key={index} dir="ltr">{item.assessment.pack}: {item.assessment.basis} · {item.trace.map((step) => step.target || step.via || step.kind).join(' → ')}</p>)}<p>{ar ? 'إعادة التشغيل وإعادة تتبع السلوك الفعلي لم تُنفذا.' : 'Runtime replay and behavioral re-trace were not run.'}</p></EvidenceSection>
-        <EvidenceSection label="RUNTIME" title={ar ? 'التحقق المعزول وReplay' : 'Isolated verification and replay'} unavailable><strong>{lifecycle?.replay_after?.status ?? 'LOADING'}</strong><p>{ar ? 'لا يوجد منفّذ عزل معتمد. لم يُشغّل المشروع المرفوع أو سيناريو استغلال.' : 'No reviewed isolated executor. The uploaded project and exploit scenario were not run.'}</p></EvidenceSection>
+        <EvidenceSection label="RUNTIME" title={ar ? 'التحقق المعزول وReplay' : 'Isolated verification and replay'} unavailable={lifecycle?.replay_after?.status !== 'PASS'}><strong>{lifecycle?.replay_after?.status ?? 'LOADING'}</strong><p>{lifecycle?.replay_after?.status === 'PASS' ? (ar ? 'فشل مسار الاستغلال نفسه بعد الإصلاح داخل العزل.' : 'The same exploit path was blocked after the patch inside isolation.') : (ar ? 'يتطلب Docker أو Podman وصورة تشغيل مثبتة بالبصمة.' : 'Requires Docker or Podman and a digest-pinned runtime image.')}</p>{lifecycle?.runtime_capability?.reason && <code dir="ltr">{lifecycle.runtime_capability.reason}</code>}</EvidenceSection>
         <EvidenceSection label="CLOSURE GATES" title={ar ? 'بوابات الإغلاق' : 'Closure gates'} unavailable={!activeProposal}><strong>{lifecycle?.closure?.status ?? 'LOADING'}</strong>{lifecycle?.closure?.gates?.length > 0 && <ul className="closure-gates">{lifecycle.closure.gates.map((gate) => <li key={gate.name}><span>{gate.name.replaceAll('_', ' ')}</span><b>{gate.status}</b></li>)}</ul>}</EvidenceSection>
         <EvidenceSection label="EVIDENCE" title={ar ? 'دليل الإغلاق' : 'Closure evidence'} unavailable><strong>{lifecycle?.closure?.status ?? 'LOADING'}</strong>{lifecycle && <a className="button button-secondary" href={findingLifecycleUrl(projectId, findingId, path, 'report')}>{ar ? 'تنزيل تقرير الأمان' : 'Download security report'}</a>}</EvidenceSection>
       </div>

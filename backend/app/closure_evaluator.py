@@ -16,7 +16,10 @@ REQUIRED_GATES = (
 )
 
 
-def evaluate_closure(*, finding: dict, proposal: dict, functional: dict) -> dict:
+def evaluate_closure(
+    *, finding: dict, proposal: dict, functional: dict,
+    runtime_before: dict | None = None, replay_after: dict | None = None,
+) -> dict:
     """Never infer runtime proof from a static recheck or a fixture test."""
     root = proposal.get("root_cause", {})
     trace = proposal.get("static_retrace", {})
@@ -39,9 +42,9 @@ def evaluate_closure(*, finding: dict, proposal: dict, functional: dict) -> dict
         "PATCH_SYNTAX_VALID": (
             "PASS" if scan.get("syntax_valid") is True else "FAIL"
         ),
-        "FUNCTIONAL_TEST": functional.get("status", "NOT_AVAILABLE"),
-        "RUNTIME_VERIFICATION_BEFORE": "NOT_AVAILABLE",
-        "REPLAY_AFTER_PATCH": "NOT_AVAILABLE",
+        "FUNCTIONAL_TEST": _evidence_gate(functional),
+        "RUNTIME_VERIFICATION_BEFORE": _evidence_gate(runtime_before),
+        "REPLAY_AFTER_PATCH": _evidence_gate(replay_after),
         "RE_SCAN": (
             "PASS" if scan.get("status") == "NO_MATCH_OBSERVED" else "FAIL"
         ),
@@ -58,3 +61,10 @@ def evaluate_closure(*, finding: dict, proposal: dict, functional: dict) -> dict
     else:
         state = "CLOSURE_INCOMPLETE"
     return {"status": state, "gates": gates, "verified_closed": state == "VERIFIED_CLOSED"}
+
+
+def _evidence_gate(evidence: dict | None) -> str:
+    status = (evidence or {}).get("status", "NOT_AVAILABLE")
+    if status in {"PASS", "NOT_AVAILABLE"}:
+        return status
+    return "FAIL"

@@ -60,3 +60,5 @@ Required before `VERIFIED_CLOSED`:
 No UI element should imply a stronger state than the stored evidence supports.
 
 `GET /api/v1/analyses/<analysis_id>/findings/<finding_id>/lifecycle` is the authoritative per-finding lifecycle contract. Its optional authenticated downloads return the encrypted-at-rest patched artifact or a JSON security report. The report never treats a proposed patch, zero candidates, syntax success, or static re-scan as verified closure.
+
+`POST /api/v1/analyses/<analysis_id>/findings/<finding_id>/verify-repair` requires the exact original file again and a previously saved encrypted patch. It returns `503 ISOLATION_RUNTIME_UNAVAILABLE` unless a Docker/Podman engine and digest-pinned local image pass capability checks. Successful evidence is append-only and HMAC protected. A separate closure record is created only when every server-side gate passes and is marked `training_eligible=false`; customer source is not copied to the evaluation/training store.

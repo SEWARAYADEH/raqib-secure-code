@@ -46,6 +46,21 @@ def test_failed_functional_check_blocks_closure():
     assert result["status"] == "NOT_CLOSED"
 
 
+def test_runtime_executor_error_is_a_failed_gate_not_incomplete():
+    finding, proposal = _evidence()
+    result = evaluate_closure(
+        finding=finding, proposal=proposal,
+        functional={"status": "ERROR"},
+        runtime_before={"status": "ERROR"},
+        replay_after={"status": "ERROR"},
+    )
+    assert result["status"] == "NOT_CLOSED"
+    gates = {item["name"]: item["status"] for item in result["gates"]}
+    assert gates["FUNCTIONAL_TEST"] == "FAIL"
+    assert gates["RUNTIME_VERIFICATION_BEFORE"] == "FAIL"
+    assert gates["REPLAY_AFTER_PATCH"] == "FAIL"
+
+
 def test_retrace_missing_and_forged_boolean_cannot_close():
     finding, proposal = _evidence()
     altered = deepcopy(proposal)

@@ -65,7 +65,7 @@ def test_finding_id_is_deterministic():
     )
 
 
-def test_unimplemented_idor_pack_keeps_flow_without_candidate_claim():
+def test_idor_pack_creates_candidate_without_runtime_claim():
     result = analyze_source_file(
         "route.py",
         b'''from flask import request
@@ -74,7 +74,9 @@ def detail():
     return Document.query.get(object_id)
 ''',
     )
-    assert result["security_analysis"]["candidates"] == []
-    observation = result["security_analysis"]["non_candidates"][0]
-    assert observation["assessment"]["pack"] == "BROKEN_AUTHORIZATION_IDOR"
-    assert observation["assessment"]["status"] == "PACK_NOT_IMPLEMENTED"
+    candidate = result["security_analysis"]["candidates"][0]
+    assert candidate["pack_assessment"]["pack"] == "BROKEN_AUTHORIZATION_IDOR"
+    assert candidate["pack_assessment"]["status"] == (
+        "OBJECT_ACCESS_WITHOUT_OBSERVED_AUTHORIZATION_CONTROL"
+    )
+    assert candidate["exploitability"]["status"] == "UNVERIFIED"

@@ -47,6 +47,8 @@ def propose_repair(filename: str, content: bytes, finding_id: str) -> dict:
         edits = _sqlite_edits(source, function, finding)
     elif category == "process_execution":
         edits = _subprocess_edits(source, function, finding)
+    elif category == "filesystem_path_operation":
+        edits = _path_traversal_edits(source, function, finding)
     else:
         raise RepairNotAvailable("No reviewed repair template covers this sink.")
     updated = _apply_line_edits(source, edits)
@@ -57,7 +59,10 @@ def propose_repair(filename: str, content: bytes, finding_id: str) -> dict:
     after_paths = [item for item in updated_result["security_analysis"]["non_candidates"]
                    if item["sink"]["category"] == category
                    and item["sink"]["target"] == finding["sink"]["target"]
-                   and item["sink"]["start_line"] == finding["sink"]["start_line"]]
+                   and item.get("scope", {}).get("function")
+                   == finding.get("scope", {}).get("function")]
+    if len(after_paths) != 1:
+        after_paths = []
     static_retrace = {
         "status": "OBSERVED_NON_CANDIDATE" if after_paths else "UNRESOLVED",
         "before_trace": finding["trace"],
@@ -72,13 +77,26 @@ def propose_repair(filename: str, content: bytes, finding_id: str) -> dict:
         fromfile=filename, tofile=f"{filename}.proposed",
     ))
     root_cause = {
-        "status": "STATICALLY_SUPPORTED" if category == "sql_execution_candidate" else "CANDIDATE",
-        "category": "SQL_TEXT_CONCATENATION" if category == "sql_execution_candidate" else "SHELL_COMMAND_CONSTRUCTION",
+        "status": "STATICALLY_SUPPORTED" if category in {
+            "sql_execution_candidate", "process_execution",
+            "filesystem_path_operation",
+        } else "CANDIDATE",
+        "category": (
+            "SQL_TEXT_CONCATENATION" if category == "sql_execution_candidate"
+            else "UNCONTAINED_USER_PATH" if category == "filesystem_path_operation"
+            else "SHELL_COMMAND_CONSTRUCTION"
+        ),
         "finding_id": finding_id,
         "source_location": {"file": filename, "line": finding["source"]["start_line"]},
         "sink_location": {"file": filename, "line": finding["sink"]["start_line"]},
         "evidence": finding["trace"],
-        "explanation": "Observed input is concatenated into SQL text before execution; the reviewed patch binds it as a parameter." if category == "sql_execution_candidate" else "Observed input enters a shell command string.",
+        "explanation": (
+            "Observed input is concatenated into SQL text before execution; the reviewed patch binds it as a parameter."
+            if category == "sql_execution_candidate" else
+            "Observed input influences a filesystem path without a resolved containment guard; the patch resolves both paths and rejects escape."
+            if category == "filesystem_path_operation" else
+            "Observed input enters a shell command string."
+        ),
         "runtime_confirmed": False,
     }
     proposal = {
@@ -248,6 +266,51 @@ def _subprocess_edits(source: str, function: ast.AST, finding: dict) -> dict[int
         argument.lineno: argument_line.replace(command_name, rendered, 1),
         shell.lineno: shell_line.replace("shell=True", "shell=False", 1),
     }
+
+
+def _path_traversal_edits(source: str, function: ast.AST, finding: dict) -> dict[int, str]:
+    sink = _sink_call(function, finding)
+    if _call_name(sink) != "open" or not sink.args or not isinstance(sink.args[0], ast.Name):
+        raise RepairNotAvailable("Only open(named_path) has a reviewed path repair template.")
+    target_name = sink.args[0].id
+    assignments = [
+        node for node in ast.walk(function)
+        if isinstance(node, ast.Assign) and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == target_name
+    ]
+    if len(assignments) != 1 or assignments[0].lineno != assignments[0].end_lineno:
+        raise RepairNotAvailable("The path assignment must be unique and single-line.")
+    assignment = assignments[0]
+    value = assignment.value
+    if not (
+        isinstance(value, ast.BinOp) and isinstance(value.op, ast.Div)
+        and isinstance(value.left, ast.Name)
+    ):
+        raise RepairNotAvailable("A named allowed root joined with one input is required.")
+    base_name = value.left.id
+    value_text = ast.get_source_segment(source, value)
+    if not value_text:
+        raise RepairNotAvailable("The path expression cannot be recovered exactly.")
+    traced_names = {
+        step.get("target") for step in finding.get("trace", [])
+        if step.get("kind") == "ASSIGNMENT"
+    }
+    if target_name not in traced_names:
+        raise RepairNotAvailable("The assigned path is not on the observed trace.")
+    if not re.search(r"(?m)^\s*from\s+flask\s+import\s+[^\n]*\babort\b", source):
+        raise RepairNotAvailable(
+            "The reviewed path repair requires an existing Flask abort import."
+        )
+    indentation = re.match(r"\s*", source.splitlines()[assignment.lineno - 1]).group()
+    guard = (
+        f"{indentation}raqib_allowed_root = {base_name}.resolve()\n"
+        f"{indentation}{target_name} = ({value_text}).resolve()\n"
+        f"{indentation}if raqib_allowed_root not in {target_name}.parents "
+        f"and {target_name} != raqib_allowed_root:\n"
+        f"{indentation}    abort(400)"
+    )
+    return {assignment.lineno: guard}
 
 
 def _sink_call(function: ast.AST, finding: dict) -> ast.Call:

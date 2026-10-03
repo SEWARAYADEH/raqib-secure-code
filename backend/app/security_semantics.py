@@ -156,6 +156,13 @@ SEMANTIC_RULES = {
             "match": MATCH_SUFFIX,
         },
         {
+            "id": "PY-SINK-RAW-HTML",
+            "kind": SEMANTIC_SINK,
+            "category": "html_dom_rendering",
+            "targets": {"render_template_string", "flask.render_template_string", "Markup"},
+            "match": MATCH_EXACT,
+        },
+        {
             "id": "PY-CTRL-SHLEX-QUOTE",
             "kind": SEMANTIC_CONTROL,
             "category": "command_argument_escaping",
@@ -359,6 +366,7 @@ def classify_security_semantics(
 
     observations.extend(_property_sources(parsed))
     observations.extend(_route_parameter_sources(parsed))
+    observations.extend(_structural_object_access_sinks(parsed))
     observations.extend(_structural_controls(parsed))
 
     sources = [
@@ -525,6 +533,36 @@ def _route_parameter_sources(parsed: dict) -> list[dict]:
     return observations
 
 
+def _structural_object_access_sinks(parsed: dict) -> list[dict]:
+    if parsed.get("language") != "Python":
+        return []
+    existing = {
+        (item.get("start_line"), item.get("start_column"))
+        for item in parsed.get("calls", [])
+        if item.get("target", "").endswith((".query.get", ".get_or_404", ".filter_by"))
+    }
+    observations = []
+    for call in parsed.get("calls", []):
+        target = call.get("target", "")
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]*\.get", target):
+            continue
+        location = (call.get("start_line"), call.get("start_column"))
+        if location in existing:
+            continue
+        observations.append({
+            "rule_id": "PY-SINK-NAMED-RESOURCE-MAP",
+            "kind": SEMANTIC_SINK,
+            "category": "authorization_sensitive_object_access",
+            "target": target,
+            "match_type": "STRUCTURAL_PATTERN",
+            "evidence_strength": "DIRECT",
+            **{key: call[key] for key in (
+                "start_line", "end_line", "start_column", "end_column"
+            )},
+        })
+    return observations
+
+
 def _structural_controls(parsed: dict) -> list[dict]:
     observations = []
     for region in parsed.get("control_regions", []):
@@ -542,7 +580,13 @@ def _structural_controls(parsed: dict) -> list[dict]:
             categories.append("path_containment_check")
         if re.search(r"\b(?:current_user|user)\.is_authenticated\b", condition):
             categories.append("authentication_check")
-        if re.search(r"\b(?:owner_id|user_id)\s*==|==\s*(?:owner_id|user_id)\b", condition):
+        if re.search(
+            r"\b(?:owner_id|user_id)\s*(?:==|!=)\s*"
+            r"(?:current_user\.)?(?:id|owner_id|user_id)\b|"
+            r"\b(?:current_user\.)?(?:id|owner_id|user_id)\s*(?:==|!=)\s*"
+            r"(?:owner_id|user_id)\b",
+            condition,
+        ):
             categories.append("ownership_check")
         if re.search(r"\b[A-Za-z_$][A-Za-z0-9_$]*\s+in\s+[A-Za-z_$][A-Za-z0-9_$]*", condition):
             categories.append("allowlist_membership_check")
@@ -555,6 +599,20 @@ def _structural_controls(parsed: dict) -> list[dict]:
             if (
                 category == "path_containment_check"
                 and " not in " in condition
+                and _region_terminates(parsed, region)
+            ):
+                functions = [
+                    item for item in parsed.get("functions", [])
+                    if _contains_location(item, region)
+                ]
+                if len(functions) == 1:
+                    location["start_line"] = region["end_line"]
+                    location["start_column"] = 0
+                    location["end_line"] = functions[0]["end_line"]
+                    location["end_column"] = functions[0]["end_column"]
+            if (
+                category == "ownership_check"
+                and "!=" in condition
                 and _region_terminates(parsed, region)
             ):
                 functions = [

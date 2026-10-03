@@ -77,14 +77,14 @@
     "expected_non_candidate_paths": 1
   },
   {
-    "id": "reference_python_large_demo_v1",
+    "id": "reference_python_large_demo_v2",
     "path": "python/raqeeB_demo_5_vulnerabilities_550plus.py",
     "language": "Python",
     "pack": "MIXED_STATIC_EVALUATION",
     "label": "STATIC_CANDIDATE",
     "pair_id": null,
     "role": "EVALUATION",
-    "expected_candidates": 3,
-    "expected_non_candidate_paths": 3
+    "expected_candidates": 5,
+    "expected_non_candidate_paths": 5
   }
 ]

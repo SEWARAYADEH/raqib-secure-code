@@ -8,9 +8,9 @@ The private full-file inventory is `backend/instance/project_inventory_2026-10-0
 
 - Python, JavaScript, JSX, and ZIP intake; bounded static parsing and project structure. Uploaded code is never executed.
 - Routes, imports, calls, source/sink observations, narrow static traces, and candidate findings. Unknown relationships stay unresolved.
-- SQL Injection, Command Injection, and Path Traversal have partial static analysis. XSS and IDOR packs are not implemented.
+- SQL Injection, Command Injection, Path Traversal, XSS, and IDOR have bounded partial static analysis with explicit safe/control counterexamples.
 - Authenticated, owner-scoped saved analyses with HMAC integrity. Three requested demo accounts are seeded only in the ignored local password database, not in public source.
-- Narrow Python SQLite and subprocess findings can produce a separate encrypted patched artifact with SHA-256, static re-scan/re-trace, and owner-scoped downloads. Uploaded code is not executed on the host; runtime verification, functional execution, replay, and verified closure remain unavailable without reviewed isolation.
+- Narrow Python SQLite, subprocess, and path findings can produce a separate encrypted patched artifact with SHA-256, static re-scan/re-trace, and owner-scoped downloads. A reviewed OCI verifier and signed runtime/closure stores are implemented for narrow SQL/command shapes. Docker Desktop and a digest-pinned Python image are configured on the prepared development host; controlled fixtures completed the real API path without executing uploaded code on the host.
 - The supplied Raqeeb artwork is used in the existing public hero; the live format and pack labels still come from the backend.
 
 ## Verification boundary for goals 1–20
@@ -19,10 +19,10 @@ The private full-file inventory is `backend/instance/project_inventory_2026-10-0
 | --- | --- | --- |
 | 1–7: intake, language, project understanding, parsing, graph | Partial | Bounded source/ZIP tests, Flask/FastAPI/Django/Express/React evidence, structure tests, resolved imports/calls, and one-boundary cross-file flow; no completeness claim. |
 | 8–14: sources, sinks, flow, context, hybrid analysis, standards | Partial | Static observations/candidates and explicit unresolved states. |
-| 15: runtime reachability/exploitability | Not available | Uploaded projects are never run in an isolation runtime. |
+| 15: runtime reachability/exploitability | Partial, operational for reviewed shapes | Reviewed single-file SQL/command replay passed through the tested Docker capability and digest-pinned image; other shapes remain unavailable. |
 | 16: root cause | Candidate only | Hypotheses are not validated root-cause proof. |
-| 17–19: patch, functional test, replay, re-scan/re-trace | Partial | Narrow Python patches and static re-scan/re-trace work; functional execution and replay require isolation. |
-| 20: closure evidence and updated project download | Partial | Patched files and security reports are downloadable; closure remains incomplete without runtime gates. |
+| 17–19: patch, functional test, replay, re-scan/re-trace | Partial | Narrow Python SQL/command patches complete all gates in isolation; path and broader project shapes remain static-only. |
+| 20: closure evidence and updated project download | Partial | Reviewed SQL/command fixtures produced signed `VERIFIED_CLOSED` records and downloadable patched files/reports; unsupported findings remain incomplete. |
 
 ## Source tree: every Git-tracked file and this new asset
 

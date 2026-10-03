@@ -45,10 +45,17 @@ class InvalidFindingTransition(ValueError):
 
 
 def build_finding_lifecycle(*, finding: dict, analysis: dict,
-                            saved_repair: dict | None) -> dict:
+                            saved_repair: dict | None,
+                            saved_verification: dict | None = None,
+                            closure_record: dict | None = None,
+                            runtime_capability: dict | None = None) -> dict:
     """Report only persisted evidence; runtime gates need an isolated executor."""
     proposal = saved_repair["evidence"] if saved_repair else None
     artifact = saved_repair["patched_artifact"] if saved_repair else {"available": False}
+    verification = saved_verification["evidence"] if saved_verification else None
+    functional = (verification or {}).get("functional_test", {"status": "NOT_AVAILABLE"})
+    runtime_before = (verification or {}).get("runtime_before", {"status": "NOT_AVAILABLE"})
+    replay_after = (verification or {}).get("replay_after", {"status": "NOT_AVAILABLE"})
     static_scan = proposal.get("static_reanalysis", {}) if proposal else {}
     static_trace = proposal.get("static_retrace", {}) if proposal else {}
     static_recheck = (static_scan.get("status") == "NO_MATCH_OBSERVED"
@@ -57,7 +64,9 @@ def build_finding_lifecycle(*, finding: dict, analysis: dict,
     if proposal:
         closure = evaluate_closure(
             finding=finding, proposal=proposal,
-            functional={"status": "NOT_AVAILABLE"},
+            functional=functional,
+            runtime_before=runtime_before,
+            replay_after=replay_after,
         )
         if not artifact.get("available"):
             for gate in closure["gates"]:
@@ -71,12 +80,12 @@ def build_finding_lifecycle(*, finding: dict, analysis: dict,
     stages = [
         {"id": "UNDERSTAND", "status": "OBSERVED" if finding.get("scope", {}).get("function") else "UNRESOLVED"},
         {"id": "TRACE", "status": "OBSERVED" if finding.get("trace") else "UNRESOLVED"},
-        {"id": "VERIFY", "status": "NOT_AVAILABLE"},
+        {"id": "VERIFY", "status": runtime_before["status"]},
         {"id": "ROOT_CAUSE", "status": (proposal or {}).get("root_cause", {}).get("status")
          or finding.get("root_cause", {}).get("status", "UNRESOLVED")},
         {"id": "PATCH", "status": "PROPOSED_UNVERIFIED" if artifact.get("available") else "NOT_AVAILABLE"},
-        {"id": "FUNCTIONAL_TEST", "status": "NOT_AVAILABLE"},
-        {"id": "REPLAY", "status": "NOT_AVAILABLE"},
+        {"id": "FUNCTIONAL_TEST", "status": functional["status"]},
+        {"id": "REPLAY", "status": replay_after["status"]},
         {"id": "RE_SCAN_RE_TRACE", "status": "PASS" if static_recheck else "NOT_AVAILABLE"},
         {"id": "CLOSURE", "status": closure["status"]},
     ]
@@ -92,12 +101,30 @@ def build_finding_lifecycle(*, finding: dict, analysis: dict,
                   "sha256": artifact.get("sha256"),
                   "download_available": bool(artifact.get("available")),
                   "diff": proposal.get("diff") if proposal else None},
-        "functional_test": {"status": "NOT_AVAILABLE", "reason": "ISOLATED_EXECUTOR_UNAVAILABLE"},
-        "runtime_before": {"status": "NOT_AVAILABLE"},
-        "replay_after": {"status": "NOT_AVAILABLE"},
+        "functional_test": functional,
+        "runtime_before": runtime_before,
+        "replay_after": replay_after,
+        "runtime_capability": runtime_capability or {
+            "available": False, "status": "NOT_AVAILABLE",
+            "reason": "RUNTIME_CAPABILITY_NOT_EVALUATED",
+        },
         "re_scan": static_scan,
         "re_trace": static_trace,
         "closure": closure,
+        "verification_evidence": {
+            "available": saved_verification is not None,
+            "evidence_id": saved_verification.get("evidence_id") if saved_verification else None,
+            "created_at": saved_verification.get("created_at") if saved_verification else None,
+        },
+        "closure_record": {
+            "available": closure_record is not None,
+            "record_id": closure_record.get("record_id") if closure_record else None,
+            "created_at": closure_record.get("created_at") if closure_record else None,
+            "training_eligible": (
+                closure_record.get("record", {}).get("training_eligible", False)
+                if closure_record else False
+            ),
+        },
     }
 
 

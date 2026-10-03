@@ -37,6 +37,19 @@ def check():
 '''
 
 
+PATH_SOURCE = b'''from flask import request, abort
+from pathlib import Path
+
+UPLOAD_ROOT = Path("/srv/data")
+
+def download():
+    filename = request.args.get("name")
+    target = UPLOAD_ROOT / str(filename)
+    with open(target, "r", encoding="utf-8") as handle:
+        return handle.read()
+'''
+
+
 def _finding(source: bytes):
     return analyze_source_file("case.py", source)["security_analysis"]["candidates"][0]
 
@@ -86,6 +99,26 @@ def test_command_proposal_uses_argument_list_and_disables_shell():
 def test_unreviewed_shell_shape_is_not_patched():
     source = COMMAND_SOURCE.replace(b"echo Checking host: ", b"sh -c ")
     with pytest.raises(RepairNotAvailable):
+        propose_repair("case.py", source, _finding(source)["id"])
+
+
+def test_path_proposal_resolves_and_rejects_escape_without_overwriting_original():
+    finding = _finding(PATH_SOURCE)
+    proposal = propose_repair("case.py", PATH_SOURCE, finding["id"])
+    assert "raqib_allowed_root = UPLOAD_ROOT.resolve()" in proposal["updated_source"]
+    assert "target = (UPLOAD_ROOT / str(filename)).resolve()" in proposal["updated_source"]
+    assert "raqib_allowed_root not in target.parents" in proposal["updated_source"]
+    assert "abort(400)" in proposal["updated_source"]
+    assert proposal["static_reanalysis"]["status"] == "NO_MATCH_OBSERVED"
+    assert proposal["static_retrace"]["status"] == "OBSERVED_NON_CANDIDATE"
+    assert proposal["root_cause"]["category"] == "UNCONTAINED_USER_PATH"
+    assert proposal["runtime_replay"] == "NOT_AVAILABLE"
+    assert b"raqib_allowed_root" not in PATH_SOURCE
+
+
+def test_path_proposal_refuses_to_invent_an_error_contract():
+    source = PATH_SOURCE.replace(b"request, abort", b"request")
+    with pytest.raises(RepairNotAvailable, match="abort import"):
         propose_repair("case.py", source, _finding(source)["id"])
 
 

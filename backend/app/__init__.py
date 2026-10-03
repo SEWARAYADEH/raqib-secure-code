@@ -24,6 +24,12 @@ def create_app(config_overrides: dict | None = None):
     app = Flask(__name__)
     app.config.from_object(Config)
 
+    if config_overrides and config_overrides.get("TESTING"):
+        if "RUNTIME_OCI_ENGINE" not in config_overrides:
+            app.config["RUNTIME_OCI_ENGINE"] = ""
+        if "RUNTIME_OCI_IMAGE" not in config_overrides:
+            app.config["RUNTIME_OCI_IMAGE"] = ""
+
     if config_overrides:
         app.config.update(config_overrides)
 

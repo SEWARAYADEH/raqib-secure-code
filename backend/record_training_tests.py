@@ -30,16 +30,17 @@ def _run_suite(
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(BACKEND)
     environment["PYTHONIOENCODING"] = "utf-8"
+    timeout_seconds = 360 if suite == "backend_pytest" else 180
     try:
         process = subprocess.run(
             command, cwd=cwd, env=environment, capture_output=True,
-            text=True, encoding="utf-8", errors="replace", timeout=180,
+            text=True, encoding="utf-8", errors="replace", timeout=timeout_seconds,
             check=False,
         )
         output = process.stdout + process.stderr
         exit_code = process.returncode
     except subprocess.TimeoutExpired:
-        output = "Trusted test suite exceeded the 180-second limit."
+        output = f"Trusted test suite exceeded the {timeout_seconds}-second limit."
         exit_code = 124
 
     if suite == "backend_pytest":

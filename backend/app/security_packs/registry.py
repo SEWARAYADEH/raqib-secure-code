@@ -43,7 +43,7 @@ PACKS = (
         "id": "XSS",
         "display_name": "Cross-Site Scripting",
         "implementation_order": 4,
-        "status": "NOT_IMPLEMENTED",
+        "status": "PARTIAL_STATIC_CANDIDATES",
         "understanding_focus": "Input -> transformations -> HTML/JavaScript sink -> context encoding",
         "can_verify_exploitability": False,
         "can_generate_verified_patch": False,
@@ -53,7 +53,7 @@ PACKS = (
         "id": "BROKEN_AUTHORIZATION_IDOR",
         "display_name": "Broken Authorization / IDOR",
         "implementation_order": 5,
-        "status": "NOT_IMPLEMENTED",
+        "status": "PARTIAL_STATIC_CANDIDATES",
         "understanding_focus": "Route -> actor -> resource ID -> ownership/role guard -> resource access",
         "can_verify_exploitability": False,
         "can_generate_verified_patch": False,
@@ -62,5 +62,12 @@ PACKS = (
 )
 
 
-def pack_coverage() -> list[dict]:
-    return [dict(pack) for pack in PACKS]
+def pack_coverage(*, runtime_available: bool = False) -> list[dict]:
+    coverage = [dict(pack) for pack in PACKS]
+    for pack in coverage:
+        if runtime_available and pack["id"] in {"SQL_INJECTION", "COMMAND_INJECTION"}:
+            pack["can_verify_exploitability"] = True
+            pack["can_generate_verified_patch"] = True
+            pack["can_close"] = True
+            pack["runtime_scope"] = "REVIEWED_SINGLE_PYTHON_FILE_SHAPES"
+    return coverage

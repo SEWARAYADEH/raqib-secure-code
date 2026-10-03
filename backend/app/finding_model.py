@@ -16,6 +16,14 @@ from app.security_packs.path_traversal import (
     PATH_INFLUENCE_CANDIDATE,
     assess_path_path,
 )
+from app.security_packs.xss import (
+    XSS_CONTROL_OBSERVED,
+    assess_xss_path,
+)
+from app.security_packs.broken_authorization import (
+    IDOR_CONTROL_OBSERVED,
+    assess_idor_path,
+)
 
 
 STANDARD_CANDIDATES = {
@@ -43,6 +51,10 @@ STANDARD_CANDIDATES = {
         "cwe": "CWE-79",
         "owasp": "A03:2021-Injection",
     },
+    "authorization_sensitive_object_access": {
+        "cwe": "CWE-639",
+        "owasp": "A01:2021-Broken Access Control",
+    },
 }
 
 
@@ -66,6 +78,7 @@ def build_finding_candidates(
                 non_candidates.append({
                     "source": path["source"],
                     "sink": path["sink"],
+                    "scope": path["scope"],
                     "trace": path["trace"],
                     "assessment": assessment,
                 })
@@ -79,6 +92,7 @@ def build_finding_candidates(
                 non_candidates.append({
                     "source": path["source"],
                     "sink": path["sink"],
+                    "scope": path["scope"],
                     "trace": path["trace"],
                     "assessment": assessment,
                 })
@@ -92,6 +106,7 @@ def build_finding_candidates(
                 non_candidates.append({
                     "source": path["source"],
                     "sink": path["sink"],
+                    "scope": path["scope"],
                     "trace": path["trace"],
                     "assessment": assessment,
                 })
@@ -99,23 +114,26 @@ def build_finding_candidates(
             candidate = _candidate_from_path(artifact, path)
             candidate["pack_assessment"] = assessment
             candidates.append(candidate)
-        elif path["sink"]["category"] in {
-            "html_dom_rendering", "authorization_sensitive_object_access"
-        }:
-            non_candidates.append({
-                "source": path["source"],
-                "sink": path["sink"],
-                "trace": path["trace"],
-                "assessment": {
-                    "status": "PACK_NOT_IMPLEMENTED",
-                    "pack": (
-                        "XSS" if path["sink"]["category"] == "html_dom_rendering"
-                        else "BROKEN_AUTHORIZATION_IDOR"
-                    ),
-                    "basis": "FLOW_OBSERVED_WITHOUT_PACK_CLASSIFICATION",
-                    "runtime_effectiveness_verified": False,
-                },
-            })
+        elif path["sink"]["category"] == "html_dom_rendering":
+            assessment = assess_xss_path(path, parsed)
+            if assessment["status"] == XSS_CONTROL_OBSERVED:
+                non_candidates.append({"source": path["source"], "sink": path["sink"],
+                                       "scope": path["scope"],
+                                       "trace": path["trace"], "assessment": assessment})
+                continue
+            candidate = _candidate_from_path(artifact, path)
+            candidate["pack_assessment"] = assessment
+            candidates.append(candidate)
+        elif path["sink"]["category"] == "authorization_sensitive_object_access":
+            assessment = assess_idor_path(path, parsed)
+            if assessment["status"] == IDOR_CONTROL_OBSERVED:
+                non_candidates.append({"source": path["source"], "sink": path["sink"],
+                                       "scope": path["scope"],
+                                       "trace": path["trace"], "assessment": assessment})
+                continue
+            candidate = _candidate_from_path(artifact, path)
+            candidate["pack_assessment"] = assessment
+            candidates.append(candidate)
         else:
             candidates.append(_candidate_from_path(artifact, path))
     return {
@@ -192,17 +210,16 @@ def _assess_candidate_path(
     elif category == "filesystem_path_operation":
         assessment = assess_path_path(path, parsed)
         candidate_status = assessment["status"] != PATH_CONTROL_OBSERVED
-    elif category in {"html_dom_rendering", "authorization_sensitive_object_access"}:
-        assessment = {
-            "status": "PACK_NOT_IMPLEMENTED",
-            "pack": "XSS" if category == "html_dom_rendering" else "BROKEN_AUTHORIZATION_IDOR",
-            "basis": "FLOW_OBSERVED_WITHOUT_PACK_CLASSIFICATION",
-            "runtime_effectiveness_verified": False,
-        }
-        candidate_status = False
+    elif category == "html_dom_rendering":
+        assessment = assess_xss_path(path, parsed)
+        candidate_status = assessment["status"] != XSS_CONTROL_OBSERVED
+    elif category == "authorization_sensitive_object_access":
+        assessment = assess_idor_path(path, parsed)
+        candidate_status = assessment["status"] != IDOR_CONTROL_OBSERVED
     if not candidate_status:
         return None, {
             "source": path["source"], "sink": path["sink"],
+            "scope": path["scope"],
             "trace": path["trace"], "assessment": assessment,
         }
     candidate = _candidate_from_path(artifact, path)

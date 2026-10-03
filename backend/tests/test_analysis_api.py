@@ -261,13 +261,15 @@ def test_analysis_options_are_real_and_safety_bounded(client):
     ]
     assert packs["SQL_INJECTION"]["status"] == "PARTIAL_STATIC_CANDIDATES"
     assert packs["PATH_TRAVERSAL"]["status"] == "PARTIAL_STATIC_CANDIDATES"
+    assert packs["XSS"]["status"] == "PARTIAL_STATIC_CANDIDATES"
+    assert packs["BROKEN_AUTHORIZATION_IDOR"]["status"] == "PARTIAL_STATIC_CANDIDATES"
     stages = {item["id"]: item["status"] for item in payload["workflow_stages"]}
     assert stages["UPLOAD"] == "AVAILABLE"
     assert stages["VERIFY"] == "NOT_AVAILABLE"
     assert stages["FIX"] == "PARTIAL"
     assert stages["TEST"] == "PARTIAL"
     assert stages["RE_VERIFY"] == "PARTIAL"
-    assert stages["EVIDENCE"] == "NOT_AVAILABLE"
+    assert stages["EVIDENCE"] == "PARTIAL"
 
     safety = payload["safety"]
     assert safety["uploaded_code_execution"] is False

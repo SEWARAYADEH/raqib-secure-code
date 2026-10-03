@@ -41,6 +41,15 @@ export function getRepairEvidence(analysisId, findingId) {
   return apiRequest(`/api/v1/analyses/${encodeURIComponent(analysisId)}/repair-evidence/${encodeURIComponent(findingId)}`);
 }
 
+export function verifyRepair({ analysisId, findingId, file }) {
+  const body = new FormData();
+  body.append('file', file);
+  return apiRequest(`/api/v1/analyses/${encodeURIComponent(analysisId)}/findings/${encodeURIComponent(findingId)}/verify-repair`, {
+    method: 'POST',
+    body,
+  });
+}
+
 function findingLifecyclePath(analysisId, findingId, filePath, download) {
   const query = new URLSearchParams();
   if (filePath) query.set('file', filePath);
